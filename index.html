@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Từ vựng</title>
+<meta name="theme-color" content="#22314f" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1424" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Từ vựng">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  /* Bàn học xanh mực, thẻ giấy có dòng kẻ, bút dạ quang cho cụm từ đánh dấu *...* */
+  :root {
+    --desk: #22314f;
+    --desk-text: #e3e9f4;
+    --desk-muted: #a3b2cc;
+    --desk-line: rgba(255, 255, 255, .18);
+    --paper: #fffefb;
+    --rule: #d5e3f2;
+    --ink: #1d2742;
+    --pencil: #687089;
+    --marker: #ffe45c;
+    --mark-from: 50%;
+    --badge: #ffe45c;
+    --line-vocab: #e26868;
+    --line-grammar: #3c9a6d;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --desk: #0e1424;
+      --desk-text: #dfe5f1;
+      --desk-muted: #8796b2;
+      --desk-line: rgba(255, 255, 255, .13);
+      --paper: #18203a;
+      --rule: rgba(150, 180, 230, .12);
+      --ink: #e8ecf5;
+      --pencil: #98a3bb;
+      --marker: #d9b83c;
+      --mark-from: 76%;
+      --line-vocab: #d36767;
+      --line-grammar: #4bae80;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--desk);
+    color: var(--desk-text);
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--badge); outline-offset: 2px; }
+
+  .app {
+    height: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  /* Thanh trên: số thẻ, đồng bộ, cài đặt */
+  .top { display: flex; align-items: center; gap: 10px; }
+  .stats { flex: 1; margin: 0; font-size: 15px; color: var(--desk-muted); }
+  .stats b { color: var(--desk-text); font-weight: 600; }
+  .tool {
+    position: relative;
+    flex: none;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--desk-line);
+    border-radius: 12px;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .tool svg { width: 20px; height: 20px; }
+  .tool.busy svg { animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .count {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: var(--badge);
+    color: #1d2742;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+  }
+  .count[hidden] { display: none; }
+
+  /* Chồng thẻ */
+  .deck { position: relative; flex: 1; min-height: 0; display: flex; margin: 16px 0 14px; }
+  .deck::before {
+    content: "";
+    position: absolute;
+    inset: 12px 8px -7px;
+    border-radius: 6px;
+    background: var(--paper);
+    opacity: .3;
+    transform: rotate(-1.6deg);
+  }
+  .card {
+    --line: var(--line-vocab);
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, .08), 0 18px 30px -14px rgba(0, 0, 0, .55);
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: transform .2s ease, opacity .2s ease;
+  }
+  .card.grammar { --line: var(--line-grammar); }
+  .head { padding: 22px 22px 12px; border-bottom: 2px solid var(--line); }
+  .term {
+    margin: 0;
+    font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, Roboto, sans-serif;
+    font-size: clamp(28px, 8.6vw, 40px);
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -.01em;
+    overflow-wrap: anywhere;
+  }
+  /* Dòng kẻ cách nhau 28px, chữ nằm đúng trên dòng */
+  .body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 22px;
+    line-height: 28px;
+    background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule) 27px 28px);
+    background-attachment: local;
+  }
+  .meaning { margin: 0 0 28px; font-size: 19px; font-weight: 500; }
+  .ex { margin: 0; font-family: ui-serif, "New York", "Noto Serif", Georgia, serif; font-size: 17.5px; }
+  .ex i { color: var(--pencil); }
+  .card b {
+    font-weight: 700;
+    padding: 0 2px;
+    background: linear-gradient(transparent var(--mark-from), var(--marker) var(--mark-from));
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 22px 14px;
+    font-size: 13px;
+    color: var(--pencil);
+  }
+  .foot span:last-child { text-align: right; }
+  .empty { margin: auto; padding: 24px; text-align: center; line-height: 1.6; color: var(--pencil); }
+
+  .hint { margin: 0 0 12px; text-align: center; font-size: 13px; color: var(--desk-muted); }
+  .master {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 54px;
+    border: 1px solid var(--desk-line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .08);
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .master svg { width: 20px; height: 20px; }
+  .master:active:not(:disabled) { background: rgba(255, 255, 255, .16); }
+  .master:disabled { opacity: .35; cursor: default; }
+
+  /* Thông báo nhỏ phía dưới */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: max-content;
+    max-width: calc(100% - 36px);
+    padding: 9px 16px;
+    border-radius: 10px;
+    background: var(--badge);
+    color: #1d2742;
+    font-size: 15px;
+    line-height: 1.4;
+    box-shadow: 0 12px 28px -10px rgba(0, 0, 0, .55);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 10px);
+    transition: opacity .2s, transform .2s;
+  }
+  #toastMsg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+  .toast button {
+    flex: none;
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  /* Cài đặt */
+  dialog {
+    width: min(92vw, 420px);
+    padding: 22px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 24px 48px -16px rgba(0, 0, 0, .6);
+  }
+  dialog::backdrop { background: rgba(8, 12, 22, .55); }
+  dialog h2 { margin: 0 0 4px; font-size: 20px; }
+  dialog label { display: block; margin: 16px 0 6px; font-size: 14px; color: var(--pencil); }
+  dialog input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 16px;
+  }
+  dialog input:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
+  .info { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--pencil); }
+  .actions { display: flex; gap: 10px; margin-top: 20px; }
+  .actions button {
+    flex: 1;
+    height: 46px;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: transparent;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .actions .primary { flex: 1.7; border-color: transparent; background: var(--ink); color: var(--paper); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card, .toast { transition: none; }
+    .tool.busy svg { animation: none; }
+    .tool.busy { opacity: .5; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <p class="stats" id="stats"></p>
+    <button class="tool" id="btnSync" type="button" aria-label="Đồng bộ">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <span class="count" id="badge" hidden></span>
+    </button>
+    <button class="tool" id="btnSettings" type="button" aria-label="Cài đặt">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <main class="deck">
+    <article class="card" id="card" aria-live="polite"></article>
+  </main>
+
+  <p class="hint" id="hint">Vuốt ngang để đổi thẻ</p>
+  <button class="master" id="btnMaster" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+    Đã nắm rõ
+  </button>
+</div>
+
+<div class="toast" id="toast" role="status">
+  <span id="toastMsg"></span>
+  <button id="toastAct" type="button" hidden></button>
+</div>
+
+<dialog id="dlg">
+  <h2>Kết nối Google Sheet</h2>
+  <label for="inUrl">Link Apps Script (đuôi /exec)</label>
+  <input id="inUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+  <label for="inKey">Mã bí mật</label>
+  <input id="inKey" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Giống dòng SECRET trong Code.gs">
+  <p class="info" id="info"></p>
+  <div class="actions">
+    <button id="btnClose" type="button">Đóng</button>
+    <button id="btnSave" type="button" class="primary">Lưu và đồng bộ</button>
+  </div>
+</dialog>
+
+<script>
+'use strict';
+
+const KEYS = { items: 'tv.items', pending: 'tv.pending', settings: 'tv.settings', lastSync: 'tv.lastSync' };
+
+// Thẻ mẫu: chỉ hiện khi chưa đồng bộ lần nào, không được lưu vào máy
+const DEMO = [
+  { id: 'demo-1', type: 'vocab', term: 'in conjunction with', meaning: 'kết hợp với',
+    example: 'hooks, states, props, Redux *in conjunction with* React components',
+    lastSeen: '', mastered: false },
+  { id: 'demo-2', type: 'grammar', term: 'have/has been + V-ing',
+    meaning: 'thì hiện tại hoàn thành tiếp diễn: việc bắt đầu trong quá khứ và vẫn đang tiếp diễn',
+    example: 'I *have been learning* English for two years.\nShe *has been waiting* since 9 a.m.',
+    lastSeen: '2026-10-14T13:00:00.000Z', mastered: false },
+  { id: 'demo-3', type: 'vocab', term: 'make up for', meaning: 'bù đắp cho',
+    example: 'He stayed late to *make up for* the lost time.\nNothing can *make up for* that mistake.',
+    lastSeen: '', mastered: false }
+];
+
+let items = [];                        // toàn bộ thẻ
+let pending = {};                      // thay đổi chưa đồng bộ: { id: { lastSeen, mastered } }
+let settings = { url: '', key: '' };
+let lastSync = '';
+let current = null;                    // thẻ đang hiện
+let demo = false, busy = false, syncing = false, drag = null, toastTimer = 0;
+let $card, $stats, $badge, $sync, $master, $hint, $toast, $toastMsg, $toastAct, $dlg, $url, $key, $info;
+
+/* ---------- Hàm tiện ích ---------- */
+const pad = n => String(n).padStart(2, '0');
+function validDate(iso) { return !!iso && !isNaN(Date.parse(iso)); }
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  return `${fmtDate(iso)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function daysAgo(iso, now) {
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+  return Math.round((day(now ? new Date(now) : new Date()) - day(new Date(iso))) / 86400000);
+}
+function agoText(n) { return n <= 0 ? 'hôm nay' : n === 1 ? 'hôm qua' : `${n} ngày trước`; }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+// *cụm từ*  →  cụm từ in đậm, tô dạ quang
+function rich(s) { return esc(s).replace(/\*(.+?)\*/g, '<b>$1</b>'); }
+function lines(s) { return String(s == null ? '' : s).split(/\r?\n/).map(l => l.trim()).filter(Boolean); }
+function kindOf(type) {
+  const raw = String(type == null ? '' : type).trim();
+  const t = raw.toLowerCase().normalize('NFC');
+  if (['grammar', 'ngữ pháp', 'ngu phap'].includes(t)) return { label: 'Ngữ pháp', cls: 'grammar' };
+  if (['vocab', 'vocabulary', 'word', 'từ vựng', 'tu vung'].includes(t)) return { label: 'Từ vựng', cls: '' };
+  return { label: raw, cls: '' };
+}
+
+/* ---------- Chọn thẻ tiếp theo ----------
+   Ngẫu nhiên có trọng số: thẻ chưa xem 1.5, thẻ xem cách đây từ 3 ngày trở lên 1,
+   thẻ vừa xem gần bằng 0 nên hầu như không lặp lại ngay. */
+function weight(item, now) {
+  if (!validDate(item.lastSeen)) return 1.5;
+  const days = Math.max(0, (now - Date.parse(item.lastSeen)) / 86400000);
+  return Math.min(1, 0.01 + days / 3);
+}
+function pickNext(list, excludeId, now, rnd) {
+  now = now || Date.now();
+  rnd = rnd || Math.random;
+  let pool = list.filter(x => !x.mastered);
+  if (pool.length > 1) pool = pool.filter(x => x.id !== excludeId);
+  if (!pool.length) return null;
+  const w = pool.map(x => weight(x, now));
+  let r = rnd() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) {
+    r -= w[i];
+    if (r < 0) return pool[i];
+  }
+  return pool[pool.length - 1];
+}
+
+/* ---------- Lưu trong máy ---------- */
+function load(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (_) { return fallback; }
+}
+function store(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (_) { return false; }
+}
+function persist() {
+  if (demo) return;
+  if (!(store(KEYS.items, items) && store(KEYS.pending, pending))) toast('Không lưu được vào bộ nhớ máy. Kiểm tra dung lượng trống.');
+}
+function recordChange(item, patch) {
+  Object.assign(item, patch);
+  if (!demo) {
+    pending[item.id] = Object.assign({}, pending[item.id], patch);
+    persist();
+  }
+  renderTop();
+}
+
+/* ---------- Giao diện ---------- */
+function renderTop() {
+  const left = items.filter(x => !x.mastered).length;
+  $stats.innerHTML = demo
+    ? 'Thẻ mẫu, bấm ⚙ để kết nối Sheet'
+    : `<b>${left}</b> đang học, <b>${items.length - left}</b> đã nắm rõ`;
+  const n = Object.keys(pending).length;
+  $badge.hidden = n === 0;
+  $badge.textContent = n > 99 ? '99+' : String(n);
+  $sync.setAttribute('aria-label', n ? `Đồng bộ (${n} thay đổi chưa đồng bộ)` : 'Đồng bộ');
+}
+
+function renderCard() {
+  const it = current;
+  $master.disabled = !it;
+  $hint.style.visibility = it ? '' : 'hidden';
+  if (!it) {
+    $card.className = 'card';
+    $card.innerHTML = `<p class="empty">${items.length
+      ? 'Bạn đã nắm rõ hết các thẻ.<br>Thêm từ mới vào Sheet rồi bấm đồng bộ.'
+      : 'Sheet chưa có từ nào.<br>Thêm từ vào Sheet rồi bấm đồng bộ.'}</p>`;
+    return;
+  }
+  const k = kindOf(it.type);
+  const meaning = lines(it.meaning).map(rich).join('<br>');
+  const examples = lines(it.example)
+    .map((l, i) => `<p class="ex">${i === 0 ? '<i>e.g.</i> ' : ''}${rich(l)}</p>`)
+    .join('');
+  const seen = validDate(it.lastSeen)
+    ? `${fmtDate(it.lastSeen)} (${agoText(daysAgo(it.lastSeen))})`
+    : 'chưa xem';
+  $card.className = k.cls ? `card ${k.cls}` : 'card';
+  $card.innerHTML = `
+    <div class="head"><h1 class="term">${esc(it.term)}</h1></div>
+    <div class="body">${meaning ? `<p class="meaning">${meaning}</p>` : ''}${examples}</div>
+    <div class="foot"><span>${esc(k.label)}</span><span>last seen: ${seen}</span></div>`;
+}
+
+function show(it) { current = it; renderCard(); }
+function next() { show(pickNext(items, current && current.id)); }
+
+// Thẻ cũ bay ra (dir: -1 trái, 1 phải, 0 lên trên), thẻ mới trồi lên từ chồng thẻ
+function leave(dir, after) {
+  busy = true;
+  $card.style.transition = '';
+  $card.style.transform = dir === 0
+    ? 'translateY(-40px) scale(.96)'
+    : `translateX(${dir * (window.innerWidth + 60)}px) rotate(${dir * 12}deg)`;
+  $card.style.opacity = '0';
+  setTimeout(() => {
+    after();
+    $card.style.transition = 'none';
+    $card.style.transform = 'translateY(14px) scale(.98)';
+    void $card.offsetWidth;
+    $card.style.transition = '';
+    $card.style.transform = '';
+    $card.style.opacity = '';
+    setTimeout(() => { busy = false; }, 200);
+  }, 200);
+}
+
+// Vuốt: ghi lại lúc vừa xem thẻ này, rồi sang thẻ khác
+function swipe(dir) {
+  if (busy || !current) return;
+  const it = current;
+  leave(dir, () => {
+    recordChange(it, { lastSeen: new Date().toISOString() });
+    next();
+  });
+}
+
+function master() {
+  if (busy || !current) return;
+  const it = current;
+  recordChange(it, { mastered: true, lastSeen: new Date().toISOString() });
+  leave(0, next);
+  toast(`Đã nắm rõ “${it.term}”`, 'Hoàn tác', function undo() {
+    if (busy) { setTimeout(undo, 120); return; }
+    recordChange(it, { mastered: false });
+    show(it);
+  });
+}
+
+/* ---------- Kéo thẻ ---------- */
+function onDown(e) {
+  if (busy || !current || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false };
+}
+function onMove(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.on) {
+    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy)) return;
+    drag.on = true;
+    try { $card.setPointerCapture(e.pointerId); } catch (_) {}
+    $card.style.transition = 'none';
+  }
+  drag.dx = dx;
+  $card.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
+}
+function onUp(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const { on, dx } = drag;
+  drag = null;
+  if (!on) return;
+  $card.style.transition = '';
+  if (e.type === 'pointerup' && Math.abs(dx) > Math.min(100, $card.offsetWidth * 0.25)) swipe(dx > 0 ? 1 : -1);
+  else $card.style.transform = '';
+}
+
+/* ---------- Thông báo ---------- */
+function toast(msg, actionLabel, action) {
+  $toastMsg.textContent = msg;
+  $toastAct.hidden = !actionLabel;
+  $toastAct.textContent = actionLabel || '';
+  $toastAct.onclick = actionLabel ? () => { hideToast(); action(); } : null;
+  $toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, actionLabel ? 5000 : 3500);
+}
+function hideToast() { $toast.classList.remove('show'); }
+
+/* ---------- Đồng bộ với Google Sheet ---------- */
+async function sync() {
+  if (syncing) return;
+  if (!settings.url || !settings.key) { openSettings(); return; }
+  syncing = true;
+  $sync.classList.add('busy');
+  const sending = pending;
+  pending = {};
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const changes = Object.keys(sending).map(id => Object.assign({ id }, sending[id]));
+    // body là chuỗi nên trình duyệt gửi dạng text/plain, Apps Script nhận được mà không vướng CORS
+    const res = await fetch(settings.url, {
+      method: 'POST',
+      body: JSON.stringify({ key: settings.key, changes }),
+      signal: ctrl.signal
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
+    if (!data || typeof data !== 'object') {
+      throw new Error('Link chưa đúng. Dùng link Web app đuôi /exec, quyền truy cập Anyone.');
+    }
+    if (!data.ok) throw new Error(`Sheet báo lỗi: ${data.error || 'không rõ'}.`);
+
+    const wasDemo = demo;
+    demo = false;
+    items = Array.isArray(data.items) ? data.items : [];
+    Object.keys(pending).forEach(id => {        // thao tác làm trong lúc đang chờ đồng bộ
+      const it = items.find(x => x.id === id);
+      if (it) Object.assign(it, pending[id]);
+    });
+    lastSync = new Date().toISOString();
+    store(KEYS.lastSync, lastSync);
+    persist();
+    const same = !wasDemo && current ? items.find(x => x.id === current.id && !x.mastered) : null;
+    if (same) show(same); else next();
+    toast(`Đã đồng bộ ${items.length} thẻ`);
+  } catch (err) {
+    Object.keys(sending).forEach(id => { pending[id] = Object.assign({}, sending[id], pending[id]); });
+    persist();
+    toast(!navigator.onLine ? 'Chưa có mạng. Thay đổi vẫn lưu trong máy, có mạng thì bấm đồng bộ lại.'
+      : err.name === 'AbortError' ? 'Script không trả lời sau 30 giây. Bấm đồng bộ lại.'
+      : err instanceof TypeError ? 'Không gọi được script. Kiểm tra mạng và link trong ⚙.'
+      : err.message);
+  } finally {
+    clearTimeout(timer);
+    syncing = false;
+    $sync.classList.remove('busy');
+    renderTop();
+  }
+}
+
+/* ---------- Cài đặt ---------- */
+function openSettings() {
+  $url.value = settings.url;
+  $key.value = settings.key;
+  const n = Object.keys(pending).length;
+  $info.textContent = (lastSync ? `Đồng bộ gần nhất lúc ${fmtDateTime(lastSync)}.` : 'Chưa đồng bộ lần nào.')
+    + (n ? ` Còn ${n} thay đổi chưa gửi lên Sheet.` : '');
+  if (!$dlg.open) $dlg.showModal();
+}
+function saveSettings() {
+  settings = { url: $url.value.trim(), key: $key.value.trim() };
+  const saved = store(KEYS.settings, settings);
+  $dlg.close();
+  if (!saved) { toast('Không lưu được cài đặt vào máy.'); return; }
+  if (!settings.url || !settings.key) return;
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(settings.url)) {
+    toast('Link cần có dạng https://script.google.com/…/exec');
+    return;
+  }
+  sync();
+}
+
+/* ---------- Khởi động ---------- */
+function init() {
+  const $ = id => document.getElementById(id);
+  $card = $('card'); $stats = $('stats'); $badge = $('badge'); $sync = $('btnSync');
+  $master = $('btnMaster'); $hint = $('hint'); $toast = $('toast'); $toastMsg = $('toastMsg');
+  $toastAct = $('toastAct'); $dlg = $('dlg'); $url = $('inUrl'); $key = $('inKey'); $info = $('info');
+
+  items = load(KEYS.items, []);
+  pending = load(KEYS.pending, {});
+  settings = Object.assign({ url: '', key: '' }, load(KEYS.settings, {}));
+  lastSync = load(KEYS.lastSync, '');
+  if (!items.length && !lastSync) {
+    items = DEMO.map(x => Object.assign({}, x));
+    demo = true;
+  }
+  next();
+  renderTop();
+
+  $card.addEventListener('pointerdown', onDown);
+  $card.addEventListener('pointermove', onMove);
+  $card.addEventListener('pointerup', onUp);
+  $card.addEventListener('pointercancel', onUp);
+  $master.addEventListener('click', master);
+  $sync.addEventListener('click', sync);
+  $('btnSettings').addEventListener('click', openSettings);
+  $('btnSave').addEventListener('click', saveSettings);
+  $('btnClose').addEventListener('click', () => $dlg.close());
+  [$url, $key].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') saveSettings(); }));
+  document.addEventListener('keydown', e => {
+    if ($dlg.open) return;
+    if (e.key === 'ArrowRight') swipe(1);
+    else if (e.key === 'ArrowLeft') swipe(-1);
+  });
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+}
+
+if (typeof document !== 'undefined') init();
+</script>
+</body>
+</html>
