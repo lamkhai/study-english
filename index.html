@@ -223,7 +223,7 @@
     transform: translate(-50%, 10px);
     transition: opacity .2s, transform .2s;
   }
-  #toastMsg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #toastMsg { min-width: 0; overflow-wrap: anywhere; }
   .toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
   .toast button {
     flex: none;
@@ -261,6 +261,7 @@
   }
   dialog input:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
   .info { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--pencil); }
+  .info.tip { margin-top: 6px; }
   .actions { display: flex; gap: 10px; margin-top: 20px; }
   .actions button {
     flex: 1;
@@ -312,10 +313,13 @@
 
 <dialog id="dlg">
   <h2>Kết nối Google Sheet</h2>
-  <label for="inUrl">Link Apps Script (đuôi /exec)</label>
-  <input id="inUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+  <label for="inSheet">Link Google Sheet</label>
+  <input id="inSheet" type="url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…">
+  <p class="info tip" id="help" hidden></p>
   <label for="inKey">Mã bí mật</label>
-  <input id="inKey" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Giống dòng SECRET trong Code.gs">
+  <input id="inKey" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Sheet mới thì bỏ trống, app tự tạo mã">
+  <label for="inUrl" id="lblUrl">Link Apps Script (đuôi /exec)</label>
+  <input id="inUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
   <p class="info" id="info"></p>
   <div class="actions">
     <button id="btnClose" type="button">Đóng</button>
@@ -327,6 +331,11 @@
 'use strict';
 
 const KEYS = { items: 'tv.items', pending: 'tv.pending', settings: 'tv.settings', lastSync: 'tv.lastSync' };
+
+// Script chung do người quản lý app deploy bằng Gmail bot (xem README).
+// Để trống thì người dùng phải tự dựng script và dán link /exec của họ vào ⚙.
+const SHARED_URL = '';
+const BOT_EMAIL = '';
 
 // Thẻ mẫu: chỉ hiện khi chưa đồng bộ lần nào, không được lưu vào máy
 const DEMO = [
@@ -344,11 +353,11 @@ const DEMO = [
 
 let items = [];                        // toàn bộ thẻ
 let pending = {};                      // thay đổi chưa đồng bộ: { id: { lastSeen, mastered } }
-let settings = { url: '', key: '' };
+let settings = { sheet: '', key: '', url: '' }; // url: link script riêng, bỏ trống thì dùng SHARED_URL
 let lastSync = '';
 let current = null;                    // thẻ đang hiện
 let demo = false, busy = false, syncing = false, drag = null, toastTimer = 0;
-let $card, $stats, $badge, $sync, $master, $hint, $toast, $toastMsg, $toastAct, $dlg, $url, $key, $info;
+let $card, $stats, $badge, $sync, $master, $hint, $toast, $toastMsg, $toastAct, $dlg, $sheet, $key, $url, $help, $info;
 
 /* ---------- Hàm tiện ích ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -372,6 +381,12 @@ function esc(s) {
 // *cụm từ*  →  cụm từ in đậm, tô dạ quang
 function rich(s) { return esc(s).replace(/\*(.+?)\*/g, '<b>$1</b>'); }
 function lines(s) { return String(s == null ? '' : s).split(/\r?\n/).map(l => l.trim()).filter(Boolean); }
+// ID của Sheet: lấy từ link …/spreadsheets/d/<ID>/edit (kể cả dạng /u/1/d/), hoặc nhận thẳng ID
+function sheetIdOf(s) {
+  const m = /\/spreadsheets\/(?:u\/\d+\/)?d\/([\w-]{20,})/.exec(s) || /^([\w-]{20,})$/.exec(s);
+  return m ? m[1] : '';
+}
+function scriptUrl() { return settings.url || SHARED_URL; }
 function kindOf(type) {
   const raw = String(type == null ? '' : type).trim();
   const t = raw.toLowerCase().normalize('NFC');
@@ -541,14 +556,14 @@ function toast(msg, actionLabel, action) {
   $toastAct.onclick = actionLabel ? () => { hideToast(); action(); } : null;
   $toast.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, actionLabel ? 5000 : 3500);
+  toastTimer = setTimeout(hideToast, actionLabel ? 5000 : msg.length > 60 ? 6000 : 3500);
 }
 function hideToast() { $toast.classList.remove('show'); }
 
 /* ---------- Đồng bộ với Google Sheet ---------- */
 async function sync() {
   if (syncing) return;
-  if (!settings.url || !settings.key) { openSettings(); return; }
+  if (!sheetIdOf(settings.sheet) || !scriptUrl()) { openSettings(); return; }
   syncing = true;
   $sync.classList.add('busy');
   const sending = pending;
@@ -558,18 +573,24 @@ async function sync() {
   try {
     const changes = Object.keys(sending).map(id => Object.assign({ id }, sending[id]));
     // body là chuỗi nên trình duyệt gửi dạng text/plain, Apps Script nhận được mà không vướng CORS
-    const res = await fetch(settings.url, {
+    const res = await fetch(scriptUrl(), {
       method: 'POST',
-      body: JSON.stringify({ key: settings.key, changes }),
+      body: JSON.stringify({ sheet: sheetIdOf(settings.sheet), key: settings.key, changes }),
       signal: ctrl.signal
     });
     const text = await res.text();
     let data = null;
     try { data = JSON.parse(text); } catch (_) {}
     if (!data || typeof data !== 'object') {
-      throw new Error('Link chưa đúng. Dùng link Web app đuôi /exec, quyền truy cập Anyone.');
+      throw new Error(settings.url
+        ? 'Link chưa đúng. Dùng link Web app đuôi /exec, quyền truy cập Anyone.'
+        : 'Script chung đang trục trặc, thử lại sau.');
     }
     if (!data.ok) throw new Error(`Sheet báo lỗi: ${data.error || 'không rõ'}.`);
+    if (data.key) {                              // script vừa thiết lập Sheet trống và tạo mã
+      settings.key = String(data.key);
+      store(KEYS.settings, settings);
+    }
 
     const wasDemo = demo;
     demo = false;
@@ -583,7 +604,7 @@ async function sync() {
     persist();
     const same = !wasDemo && current ? items.find(x => x.id === current.id && !x.mastered) : null;
     if (same) show(same); else next();
-    toast(`Đã đồng bộ ${items.length} thẻ`);
+    toast(data.key ? `Đã thiết lập Sheet, mã bí mật là ${data.key}. Xem lại trong ⚙.` : `Đã đồng bộ ${items.length} thẻ`);
   } catch (err) {
     Object.keys(sending).forEach(id => { pending[id] = Object.assign({}, sending[id], pending[id]); });
     persist();
@@ -601,23 +622,29 @@ async function sync() {
 
 /* ---------- Cài đặt ---------- */
 function openSettings() {
-  $url.value = settings.url;
+  $sheet.value = settings.sheet;
   $key.value = settings.key;
+  $url.value = settings.url;
   const n = Object.keys(pending).length;
   $info.textContent = (lastSync ? `Đồng bộ gần nhất lúc ${fmtDateTime(lastSync)}.` : 'Chưa đồng bộ lần nào.')
     + (n ? ` Còn ${n} thay đổi chưa gửi lên Sheet.` : '');
   if (!$dlg.open) $dlg.showModal();
 }
 function saveSettings() {
-  settings = { url: $url.value.trim(), key: $key.value.trim() };
+  settings = { sheet: $sheet.value.trim(), key: $key.value.trim(), url: $url.value.trim() };
   const saved = store(KEYS.settings, settings);
   $dlg.close();
   if (!saved) { toast('Không lưu được cài đặt vào máy.'); return; }
-  if (!settings.url || !settings.key) return;
-  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(settings.url)) {
-    toast('Link cần có dạng https://script.google.com/…/exec');
+  if (!settings.sheet) return;
+  if (!sheetIdOf(settings.sheet)) {
+    toast('Link Sheet cần có dạng https://docs.google.com/spreadsheets/d/…');
     return;
   }
+  if (settings.url && !/^https:\/\/script\.google\.com\/.+\/exec$/.test(settings.url)) {
+    toast('Link script cần có dạng https://script.google.com/…/exec');
+    return;
+  }
+  if (!scriptUrl()) { toast('Chưa có script chung, hãy dán link Apps Script của bạn.'); return; }
   sync();
 }
 
@@ -626,11 +653,20 @@ function init() {
   const $ = id => document.getElementById(id);
   $card = $('card'); $stats = $('stats'); $badge = $('badge'); $sync = $('btnSync');
   $master = $('btnMaster'); $hint = $('hint'); $toast = $('toast'); $toastMsg = $('toastMsg');
-  $toastAct = $('toastAct'); $dlg = $('dlg'); $url = $('inUrl'); $key = $('inKey'); $info = $('info');
+  $toastAct = $('toastAct'); $dlg = $('dlg'); $sheet = $('inSheet'); $key = $('inKey'); $url = $('inUrl');
+  $help = $('help'); $info = $('info');
+  if (SHARED_URL) {
+    $('lblUrl').textContent = 'Link Apps Script riêng (không bắt buộc)';
+    $url.placeholder = 'Bỏ trống để dùng script chung';
+    if (BOT_EMAIL) {
+      $help.textContent = `Dùng script chung thì chia sẻ Sheet cho ${BOT_EMAIL} với quyền Người chỉnh sửa.`;
+      $help.hidden = false;
+    }
+  }
 
   items = load(KEYS.items, []);
   pending = load(KEYS.pending, {});
-  settings = Object.assign({ url: '', key: '' }, load(KEYS.settings, {}));
+  settings = Object.assign({ sheet: '', key: '', url: '' }, load(KEYS.settings, {}));
   lastSync = load(KEYS.lastSync, '');
   if (!items.length && !lastSync) {
     items = DEMO.map(x => Object.assign({}, x));
@@ -648,7 +684,7 @@ function init() {
   $('btnSettings').addEventListener('click', openSettings);
   $('btnSave').addEventListener('click', saveSettings);
   $('btnClose').addEventListener('click', () => $dlg.close());
-  [$url, $key].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') saveSettings(); }));
+  [$sheet, $key, $url].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') saveSettings(); }));
   document.addEventListener('keydown', e => {
     if ($dlg.open) return;
     if (e.key === 'ArrowRight') swipe(1);
