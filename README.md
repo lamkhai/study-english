@@ -8,6 +8,12 @@ Cấu trúc repo:
 
 README có hai phần: **Dùng app** cho người học, và **Quản lý app** cho người đưa app lên GitHub và dựng script chung.
 
+## Bản đang chạy
+
+- **Link app:** https://lamkhai.github.io/study-english/
+- **Email bot:** người quản lý app gửi riêng cho bạn. Chia sẻ Sheet của bạn cho email này ở Bước 2, Cách A.
+- **Script chung:** https://script.google.com/macros/s/AKfycbwcHehzUPC07oMh4-PqGRxwX5AvZzLPS4Y2Fb6GkvJ1RX3TENTF9T-_weUpoA5bk2yI/exec. Link này đã ghi sẵn trong app, người dùng không cần nhập.
+
 ## Dùng app
 
 Thiết lập lần đầu gồm 3 bước dưới đây.
@@ -30,13 +36,13 @@ Script chỉ làm việc với hai tab này, không bao giờ đọc hay sửa t
 
 Chọn một trong hai cách.
 
-**Cách A: dùng script chung (dễ nhất).** Trong Sheet, bấm **Share** (Chia sẻ), thêm email bot mà app hiện trong ⚙, chọn quyền **Editor** (Người chỉnh sửa), rồi bấm Gửi. Xong bước này.
+**Cách A: dùng script chung (dễ nhất).** Trong Sheet, bấm **Share** (Chia sẻ), thêm email bot mà người quản lý app gửi cho bạn, chọn quyền **Editor** (Người chỉnh sửa), rồi bấm Gửi. Xong bước này.
 
 > Đừng chọn "Bất kỳ ai có đường liên kết" (*Anyone with the link*) thay cho bước chia sẻ cho bot. Làm vậy thì ai có link cũng mở thẳng được Sheet, sửa hay xoá được từ, và đọc được mã ở tab `config`. Chia sẻ cho email bot thì Sheet vẫn ở chế độ Bị hạn chế (*Restricted*): chỉ bạn và bot mở được.
 
 > Tài khoản bot do người quản lý app giữ, đọc và sửa được toàn bộ Sheet này. Muốn thôi dùng thì bỏ chia sẻ cho bot, bot mất quyền ngay.
 
-**Cách B: tự dựng script riêng.** Dùng khi bạn không muốn chia sẻ Sheet cho ai, hoặc khi ⚙ không hiện email bot (app chưa có script chung).
+**Cách B: tự dựng script riêng.** Dùng khi bạn không muốn chia sẻ Sheet cho ai, hoặc khi người quản lý app chưa dựng script chung.
 
 1. Trong Sheet, mở **Extensions → Apps Script** (giao diện tiếng Việt: Tiện ích mở rộng → Apps Script).
 2. Xoá code mẫu, dán toàn bộ nội dung `apps-script/Code.gs`, rồi bấm Lưu. Không cần sửa gì trong code.
@@ -52,7 +58,7 @@ Chọn một trong hai cách.
 
 ### Bước 3. Cài lên điện thoại
 
-Mở link app, dạng `https://<tên-tài-khoản>.github.io/tu-vung/` (người quản lý app gửi cho bạn):
+Mở link app https://lamkhai.github.io/study-english/:
 - **iPhone**: mở link bằng Safari → nút Chia sẻ → **Thêm vào MH chính**.
 - **Samsung**: mở link bằng Chrome → menu ⋮ → **Thêm vào màn hình chính** (hoặc **Cài đặt ứng dụng**).
 
@@ -130,16 +136,20 @@ Cuối cùng vào **Settings → Pages**, mục *Branch* chọn `main` và `/ (r
 
 Sửa code app rồi push lên GitHub: điện thoại tự tải bản mới khi mở app có mạng, và bản mới hiện từ lần mở kế tiếp.
 
-> Repo công khai nên ai cũng đọc được code. Code không chứa từ vựng hay mã bí mật nào: mã của từng người nằm trong tab `config` của Sheet họ. Link script chung và email bot trong `index.html` thì ai cũng thấy, không sao, vì mỗi Sheet có mã riêng.
+> Repo công khai nên ai cũng đọc được code. Code không chứa từ vựng hay mã bí mật nào: mã của từng người nằm trong tab `config` của Sheet họ. Link script chung trong `index.html` (và email bot, nếu bạn điền `BOT_EMAIL`) thì ai cũng thấy, không sao, vì mỗi Sheet có mã riêng.
 
 ### Dựng script chung bằng Gmail bot
 
 Không bắt buộc. Nếu bỏ qua, người dùng chỉ dùng được Cách B.
 
+Script đang dùng được ghi ở mục **Bản đang chạy**. Nếu đổi bot hoặc tạo bản deploy mới thì link `/exec` sẽ đổi. Khi đó phải sửa cả `SHARED_URL` trong `index.html` lẫn mục đó.
+
 1. Tạo một Gmail mới chỉ để chạy script, ví dụ `tuvung.bot@gmail.com`. Bật xác minh 2 bước và không dùng tài khoản này vào việc khác: ai vào được tài khoản bot là đọc được Sheet của mọi người dùng.
 2. Đăng nhập Gmail bot, mở [script.google.com](https://script.google.com) → **New project**. Xoá code mẫu, dán toàn bộ `apps-script/Code.gs`, đặt tên project rồi bấm Lưu.
 3. Deploy giống mục 3–5 của Bước 2, Cách B (*Execute as*: **Me**, *Who has access*: **Anyone**), rồi copy **Web app URL**.
-4. Trong `index.html`, điền link vừa copy vào `SHARED_URL` và email bot vào `BOT_EMAIL`, rồi commit và push lên GitHub.
+4. Trong `index.html`, điền link vừa copy vào `SHARED_URL`, rồi commit và push lên GitHub. `BOT_EMAIL` không bắt buộc:
+   - Để trống thì email bot không lên GitHub. Bạn tự gửi email bot cho người dùng khi mời họ.
+   - Điền vào thì ⚙ hiện sẵn email bot, nhưng email sẽ công khai trên GitHub.
 5. Thử với một Sheet trống: chia sẻ cho bot, dán link vào app, để trống ô mã rồi đồng bộ.
 
 Sửa `Code.gs` sau này thì dán lại vào project của bot và deploy **New version** (xem lưu ý ở Bước 2). Mọi người dùng chạy bản mới ngay, nên thử kỹ trước khi deploy. Lỗi khi chạy xem ở mục **Executions** trong Apps Script.
