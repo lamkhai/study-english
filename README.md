@@ -79,11 +79,11 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 
 | term | meaning | example | type |
 |---|---|---|---|
-| in conjunction with | kết hợp với | `hooks, states, props, Redux *in conjunction with* React components` | vocab |
+| in conjunction with | kết hợp với | `hooks, states, props, Redux *in conjunction with* React components` | phrase |
 
 - Bọc cụm cần in đậm bằng dấu `*`. Một câu có mấy cụm cũng được.
 - Muốn nhiều ví dụ thì xuống dòng trong cùng ô bằng Ctrl+Enter (trên Mac: ⌘+Enter).
-- Cột `type` ghi `vocab` hoặc `grammar`, bỏ trống cũng được.
+- Cột `type` ghi loại từ như `noun`, `verb`, `adjective`, `phrasal verb`, hoặc `grammar` cho cấu trúc ngữ pháp. Bỏ trống cũng được.
 - Ba cột `last_seen`, `mastered`, `id` do script tự tạo và quản lý.
 - Cột `mastered` là ô tick. Muốn học lại một từ đã đánh dấu nắm rõ, bỏ tick rồi đồng bộ.
 - Cột `id` giúp app nhận ra từng dòng kể cả khi bạn sửa chữ hay sắp xếp lại Sheet. Đừng sửa cột này.
@@ -94,7 +94,8 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Thẻ tiếp theo được chọn ngẫu nhiên, ưu tiên thẻ chưa xem hoặc lâu chưa xem. Thẻ vừa xem hầu như không lặp lại ngay.
 - Bấm **Đã nắm rõ** thì thẻ không hiện nữa. Bấm nhầm thì chọn **Hoàn tác** trên thông báo.
 - Không có mạng vẫn học bình thường. Con số trên nút ↻ là số thay đổi chưa đồng bộ.
-- Thêm từ mới: nhập vào Sheet, rồi bấm ↻ trong app lúc có mạng.
+- Thêm từ mới: bấm **+**, điền từ, nghĩa, ví dụ, chọn loại từ (noun, verb, adjective…) rồi bấm **Thêm**. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
+- Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Muốn sửa hay xoá từ thì làm trong Sheet.
 
 ## Khi gặp lỗi
 
@@ -111,6 +112,7 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 | Sheet báo lỗi: script đang bận… | Nhiều người đang đồng bộ cùng lúc. Đợi vài giây rồi bấm ↻. |
 | Sheet báo lỗi: không thấy cột "term"… | Hàng 1 của tab `english` thiếu tiêu đề `term`. Gõ lại tiêu đề `term` vào hàng 1. |
 | Link chưa đúng… | (Cách B) Dùng link đuôi `/exec`, quyền *Anyone*, và Deploy bản mới nhất (xem lưu ý ở Bước 2). |
+| Script chưa được cập nhật nên chưa nhận từ mới… | Script đang chạy là bản cũ, chưa nhận được từ thêm trong app. Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Từ mới vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
 | Script chung đang trục trặc… | Báo người quản lý app. Trong lúc chờ vẫn học offline bình thường. |
 | Không gọi được script | Kiểm tra mạng, hoặc dán lại link trong ⚙. |
 
