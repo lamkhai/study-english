@@ -90,7 +90,7 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 
 ## Dùng hằng ngày
 
-- Vuốt trái hoặc phải để sang thẻ khác. Thẻ vừa xem được ghi lại `last seen`.
+- Vuốt trái hoặc phải, hoặc bấm **Thẻ tiếp**, để sang thẻ khác. Thẻ vừa xem được ghi lại `last seen`.
 - Thẻ tiếp theo được chọn ngẫu nhiên, ưu tiên thẻ chưa xem hoặc lâu chưa xem. Thẻ vừa xem hầu như không lặp lại ngay.
 - Bấm **Đã nắm rõ** thì thẻ không hiện nữa. Bấm nhầm thì chọn **Hoàn tác** trên thông báo.
 - Không có mạng vẫn học bình thường. Con số trên nút ↻ là số thay đổi chưa đồng bộ.
@@ -115,6 +115,24 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 | Không gọi được script | Kiểm tra mạng, hoặc dán lại link trong ⚙. |
 
 ## Quản lý app
+
+### Chạy thử ở máy
+
+App chỉ gồm các file tĩnh, không cần cài thư viện hay build. Mở terminal ở thư mục gốc repo rồi chạy một trong hai lệnh:
+
+```bash
+python3 -m http.server 8000   # Windows: py -m http.server 8000
+npx serve .                   # cần Node
+```
+
+Sau đó mở http://localhost:8000, hoặc link mà `npx serve` in ra.
+
+- Đừng mở thẳng file `index.html` bằng trình duyệt. Service worker chỉ chạy qua http(s) hoặc localhost, nên mở kiểu đó thì app không dùng được offline.
+- App luôn mở bản đã lưu trong máy trước, nên sửa code xong phải tải lại trang 2 lần mới thấy thay đổi. Muốn lần nào cũng thấy bản mới: F12 → **Application** → **Service workers** → tick **Bypass for network**.
+- Trên máy tính, kéo thẻ bằng chuột hoặc bấm phím ← → để chuyển thẻ.
+- Lần đầu mở, app hiện vài thẻ mẫu. Cài đặt ở localhost tách riêng với bản trên GitHub Pages, nên muốn đồng bộ thì nhập lại link Sheet và mã bí mật trong ⚙.
+
+> Đồng bộ từ localhost vẫn ghi vào Sheet thật. Muốn thử thoải mái thì dùng một Sheet riêng để test.
 
 ### Đưa app lên GitHub Pages
 
