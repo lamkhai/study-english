@@ -83,7 +83,8 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 
 - Bọc cụm cần in đậm bằng dấu `*`. Một câu có mấy cụm cũng được.
 - Muốn nhiều ví dụ thì xuống dòng trong cùng ô bằng Ctrl+Enter (trên Mac: ⌘+Enter).
-- Cột `type` ghi loại từ như `noun`, `verb`, `adjective`, `phrasal verb`, hoặc `grammar` cho cấu trúc ngữ pháp. Bỏ trống cũng được.
+- Cột `type` ghi loại từ như `noun`, `verb`, `adjective`, `phrasal verb`, hoặc `grammar` cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: `noun, verb`. Bỏ trống cũng được.
+- Từ có nhiều loại thì ô `meaning` ghi mỗi nghĩa một dòng, mở đầu bằng loại viết tắt: `(n) cuộc chạy`, `(v) chạy`.
 - Ba cột `last_seen`, `mastered`, `id` do script tự tạo và quản lý.
 - Cột `mastered` là ô tick. Muốn học lại một từ đã đánh dấu nắm rõ, bỏ tick rồi đồng bộ.
 - Cột `id` giúp app nhận ra từng dòng kể cả khi bạn sửa chữ hay sắp xếp lại Sheet. Đừng sửa cột này.
@@ -94,8 +95,11 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Thẻ tiếp theo được chọn ngẫu nhiên, ưu tiên thẻ chưa xem hoặc lâu chưa xem. Thẻ vừa xem hầu như không lặp lại ngay.
 - Bấm **Đã nắm rõ** thì thẻ không hiện nữa. Bấm nhầm thì chọn **Hoàn tác** trên thông báo.
 - Không có mạng vẫn học bình thường. Con số trên nút ↻ là số thay đổi chưa đồng bộ.
-- Thêm từ mới: bấm **+**, điền từ, nghĩa, ví dụ, chọn loại từ (noun, verb, adjective…) rồi bấm **Thêm**. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
-- Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Muốn sửa hay xoá từ thì làm trong Sheet.
+- Thêm từ mới: bấm **+**, gõ từ, chọn loại từ (chọn được nhiều loại), điền nghĩa, ví dụ rồi bấm **Thêm**. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
+- Mỗi từ chỉ có một thẻ. Gõ một từ đã có (không phân biệt hoa thường) thì bảng chuyển sang **Sửa từ**, nạp sẵn loại từ, nghĩa, ví dụ của thẻ đó; sửa xong bấm **Cập nhật**. Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
+- Từ có nhiều loại: tick đủ các loại, app tự gắn `(n)`, `(v)`… vào ô Nghĩa để bạn ghi mỗi nghĩa một dòng.
+- Bản sửa được ghi vào Sheet ở lần đồng bộ kế tiếp. Nếu trong lúc đó ô ấy đã được sửa thẳng trong Sheet, app giữ bản trong Sheet và báo lại.
+- Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Xoá từ, hay sửa chữ của chính từ đó (cột `term`), thì làm trong Sheet.
 
 ## Khi gặp lỗi
 
@@ -112,7 +116,8 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 | Sheet báo lỗi: script đang bận… | Nhiều người đang đồng bộ cùng lúc. Đợi vài giây rồi bấm ↻. |
 | Sheet báo lỗi: không thấy cột "term"… | Hàng 1 của tab `english` thiếu tiêu đề `term`. Gõ lại tiêu đề `term` vào hàng 1. |
 | Link chưa đúng… | (Cách B) Dùng link đuôi `/exec`, quyền *Anyone*, và Deploy bản mới nhất (xem lưu ý ở Bước 2). |
-| Script chưa được cập nhật nên chưa nhận từ mới… | Script đang chạy là bản cũ, chưa nhận được từ thêm trong app. Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Từ mới vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
+| Script chưa được cập nhật nên chưa nhận từ mới và bản sửa… | Script đang chạy là bản cũ, chưa nhận được từ thêm hay bản sửa trong app. Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
+| Bản sửa “…” không được ghi vì từ này vừa đổi trong Sheet | Ô đó đã được sửa thẳng trong Sheet trước khi app kịp đồng bộ, nên app giữ bản trong Sheet. Thẻ trong app giờ là bản trong Sheet; muốn sửa tiếp thì bấm ✎. |
 | Script chung đang trục trặc… | Báo người quản lý app. Trong lúc chờ vẫn học offline bình thường. |
 | Không gọi được script | Kiểm tra mạng, hoặc dán lại link trong ⚙. |
 

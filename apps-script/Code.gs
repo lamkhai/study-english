@@ -19,6 +19,8 @@ const MIN_SECRET = 8;         // mã ngắn hơn thì không nhận, cho khó đ
 const TAG = 'tu-vung';
 // Bốn cột bạn nhập; từ thêm trong app cũng được ghi vào đây
 const INPUT_COLUMNS = ['term', 'meaning', 'example', 'type'];
+// Ba cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
+const EDIT_COLUMNS = ['meaning', 'example', 'type'];
 // Ba cột do app tự quản lý, bạn không cần nhập
 const AUTO_COLUMNS = ['last_seen', 'mastered', 'id'];
 
@@ -27,7 +29,7 @@ function doGet() {
   return json_({ ok: true, message: 'Script đang chạy. Tự dựng thì dán link này vào ⚙ trong app.' });
 }
 
-/** App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ và từ mới, ghi vào Sheet, trả về toàn bộ thẻ. */
+/** App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới và bản sửa, ghi vào Sheet, trả về toàn bộ thẻ. */
 function doPost(e) {
   let body;
   try {
@@ -86,7 +88,9 @@ function doPost(e) {
 
     const changes = Array.isArray(body.changes) ? body.changes : [];
     const adds = Array.isArray(body.adds) ? body.adds : [];
-    const res = { ok: true, items: sync_(words, changes, adds) };
+    const edits = Array.isArray(body.edits) ? body.edits : [];
+    const out = sync_(words, changes, adds, edits);
+    const res = { ok: true, items: out.items, conflicts: out.conflicts };
     if (created) res.key = created;
     SpreadsheetApp.flush(); // ghi hết vào Sheet trước khi nhả khoá
     return json_(res);
@@ -97,7 +101,7 @@ function doPost(e) {
   }
 }
 
-function sync_(sheet, changes, adds) {
+function sync_(sheet, changes, adds, edits) {
   // 1. Đọc tiêu đề ở hàng 1 (sheet trống thì tạo sẵn tiêu đề)
   if (sheet.getLastColumn() === 0) {
     sheet.getRange(1, 1, 1, INPUT_COLUMNS.length).setValues([INPUT_COLUMNS]);
@@ -107,8 +111,8 @@ function sync_(sheet, changes, adds) {
   if (header.indexOf('term') === -1) {
     throw new Error('không thấy cột "term" ở hàng 1 của tab ' + sheet.getName());
   }
-  // Thiếu cột tự quản lý thì thêm vào cuối. Có từ mới thì thêm cả cột nhập còn thiếu, để không mất chữ nào
-  AUTO_COLUMNS.concat(adds.length ? INPUT_COLUMNS : []).forEach(name => {
+  // Thiếu cột tự quản lý thì thêm vào cuối. Có từ mới hay bản sửa thì thêm cả cột nhập còn thiếu, để không mất chữ nào
+  AUTO_COLUMNS.concat(adds.length || edits.length ? INPUT_COLUMNS : []).forEach(name => {
     if (header.indexOf(name) !== -1) return;
     header.push(name);
     if (header.length > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
@@ -150,7 +154,32 @@ function sync_(sheet, changes, adds) {
   });
   const all = rows.concat(fresh);
 
-  // 4. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi
+  // 4. Bản sửa từ app: chỉ ghi khi ô trong Sheet vẫn như lúc app lấy về, hoặc đã đúng bản mới. Ô đã được sửa
+  //    trong Sheet, hay dòng không còn, thì giữ nguyên Sheet và báo id đó lại cho app.
+  const conflicts = [];
+  const edited = [];                      // [dòng, tên cột] của các ô cần ghi
+  edits.forEach(e => {
+    const id = text_(e && e.id);
+    const names = EDIT_COLUMNS.filter(name => e && e[name] && typeof e[name] === 'object');
+    if (!id || !names.length) return;
+    const r = byId[id];
+    const ok = r && names.every(name => {
+      const now = text_(r[col[name]]);
+      return now === text_(e[name].from) || now === text_(e[name].to);
+    });
+    if (!ok) {
+      conflicts.push(id);
+      return;
+    }
+    names.forEach(name => {
+      const to = text_(e[name].to);
+      if (text_(r[col[name]]) === to) return;
+      r[col[name]] = to;
+      edited.push([r, name]);
+    });
+  });
+
+  // 5. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi
   changes.forEach(ch => {
     const r = byId[text_(ch.id)];
     if (!r) return;
@@ -160,8 +189,9 @@ function sync_(sheet, changes, adds) {
     if (typeof ch.mastered === 'boolean') r[col.mastered] = ch.mastered;
   });
 
-  // 5. Dòng của từ mới thì ghi cả 4 cột nhập. Các dòng khác chỉ ghi lại 3 cột tự quản lý, không đụng tới
-  //    các cột bạn nhập. Id và chữ ghi dạng chữ, để "0012ab34" hay "24/7" không bị đổi thành số hay ngày tháng.
+  // 6. Dòng của từ mới thì ghi cả 4 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 3 cột
+  //    tự quản lý, không đụng tới các cột bạn nhập. Id và chữ ghi dạng chữ, để "0012ab34" hay "24/7" không bị
+  //    đổi thành số hay ngày tháng.
   if (all.length) {
     const short = all.length + 1 - sheet.getMaxRows();
     if (short > 0) sheet.insertRowsAfter(sheet.getMaxRows(), short);
@@ -171,6 +201,10 @@ function sync_(sheet, changes, adds) {
           .setValues(fresh.map(r => [r[col[name]]]));
       });
     }
+    edited.forEach(([r, name]) => {
+      const i = rows.indexOf(r);           // dòng mới thêm thì đã ghi ở trên
+      if (i !== -1) sheet.getRange(i + 2, col[name] + 1).setNumberFormat('@').setValue(r[col[name]]);
+    });
     sheet.getRange(2, col.id + 1, all.length, 1).setNumberFormat('@');
     AUTO_COLUMNS.forEach(name => {
       sheet.getRange(2, col[name] + 1, all.length, 1).setValues(all.map(r => [r[col[name]]]));
@@ -180,8 +214,8 @@ function sync_(sheet, changes, adds) {
       .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
   }
 
-  // 6. Trả toàn bộ thẻ về app
-  return all.filter(hasTerm).map(r => ({
+  // 7. Trả toàn bộ thẻ về app, kèm id các bản sửa không ghi được
+  const items = all.filter(hasTerm).map(r => ({
     id: r[col.id],
     term: text_(r[col.term]),
     meaning: col.meaning === -1 ? '' : text_(r[col.meaning]),
@@ -190,6 +224,7 @@ function sync_(sheet, changes, adds) {
     lastSeen: toIso_(r[col.last_seen]),
     mastered: r[col.mastered] === true || text_(r[col.mastered]).toUpperCase() === 'TRUE'
   }));
+  return { items, conflicts };
 }
 
 /** Tab mang thẻ ẩn của app (role là 'words' hoặc 'config'); người dùng đổi tên tab thì vẫn nhận ra. */
@@ -221,8 +256,9 @@ function makeWords_(ss) {
   const head = INPUT_COLUMNS.concat(AUTO_COLUMNS);
   sheet.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
   sheet.setFrozenRows(1);
+  sheet.getRange(1, 2).setNote('Từ có nhiều loại: mỗi nghĩa một dòng, mở đầu bằng loại viết tắt như (n), (v). Xuống dòng trong ô bằng Ctrl+Enter.');
   sheet.getRange(1, 3).setNote('Bọc *cụm từ* để in đậm. Nhiều ví dụ thì xuống dòng trong ô bằng Ctrl+Enter.');
-  sheet.getRange(1, 4).setNote('Loại từ như noun, verb, adjective, hoặc grammar cho cấu trúc ngữ pháp. Bỏ trống cũng được.');
+  sheet.getRange(1, 4).setNote('Loại từ như noun, verb, adjective, hoặc grammar cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: noun, verb. Bỏ trống cũng được.');
   return sheet;
 }
 

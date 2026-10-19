@@ -163,6 +163,7 @@
     background-attachment: local;
   }
   .meaning { margin: 0 0 28px; font-size: 19px; font-weight: 500; }
+  .meaning i { color: var(--pencil); }
   .ex { margin: 0; font-family: ui-serif, "New York", "Noto Serif", Georgia, serif; font-size: 17.5px; }
   .ex i { color: var(--pencil); }
   .card b {
@@ -174,13 +175,31 @@
   }
   .foot {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
     gap: 12px;
     padding: 10px 22px 14px;
     font-size: 13px;
     color: var(--pencil);
   }
-  .foot span:last-child { text-align: right; }
+  .foot span:first-child { margin-right: auto; }
+  .foot .seen { text-align: right; }
+  /* Nút ✎ sửa thẻ: lề âm để chân thẻ không cao thêm */
+  .foot .edit {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    margin: -6px -8px -6px 0;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--pencil);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .foot .edit svg { width: 16px; height: 16px; }
   .empty { margin: auto; padding: 24px; text-align: center; line-height: 1.6; color: var(--pencil); }
 
   .hint { margin: 0 0 12px; text-align: center; font-size: 13px; color: var(--desk-muted); }
@@ -259,8 +278,8 @@
   }
   dialog::backdrop { background: rgba(8, 12, 22, .55); }
   dialog h2 { margin: 0 0 4px; font-size: 20px; }
-  dialog label { display: block; margin: 16px 0 6px; font-size: 14px; color: var(--pencil); }
-  dialog input, dialog textarea, dialog select {
+  dialog label, dialog .lbl { display: block; margin: 16px 0 6px; font-size: 14px; color: var(--pencil); }
+  dialog input, dialog textarea {
     width: 100%;
     padding: 11px 12px;
     border: 1px solid var(--rule);
@@ -271,24 +290,17 @@
     font-size: 16px;
   }
   dialog textarea { display: block; resize: vertical; }
-  dialog input:focus-visible, dialog textarea:focus-visible, dialog select:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
-  /* Ô chọn loại từ: bỏ kiểu mặc định của máy, tự vẽ mũi tên cho hợp màu thẻ */
-  dialog select { -webkit-appearance: none; appearance: none; padding-right: 40px; background: var(--paper); cursor: pointer; }
-  .pick { position: relative; }
-  .pick::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: 16px;
-    width: 7px;
-    height: 7px;
-    border: solid var(--pencil);
-    border-width: 0 2px 2px 0;
-    transform: translateY(-70%) rotate(45deg);
-    pointer-events: none;
-  }
+  dialog input:focus-visible, dialog textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
+  /* Loại từ: mỗi loại một nút bật/tắt, chọn được nhiều loại */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  dialog .chip { position: relative; display: block; margin: 0; font-size: 15px; color: var(--ink); cursor: pointer; }
+  .chip input { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; opacity: 0; }
+  .chip span { display: block; padding: 6px 13px; border: 1px solid var(--rule); border-radius: 999px; line-height: 1.4; }
+  .chip input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+  .chip input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
   .info { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--pencil); }
   .info.tip { margin-top: 6px; }
+  .info.warn { margin-top: 8px; color: var(--ink); font-weight: 600; }
   .actions { display: flex; gap: 10px; margin-top: 20px; }
   .actions button {
     flex: 1;
@@ -365,32 +377,17 @@
 </dialog>
 
 <dialog id="dlgAdd">
-  <h2>Thêm từ mới</h2>
+  <h2 id="addTitle">Thêm từ mới</h2>
   <label for="inTerm">Từ</label>
   <input id="inTerm" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="next" placeholder="make up for" autofocus>
+  <p class="info warn" id="addMsg" role="status" hidden></p>
+  <p class="lbl" id="lblTypes">Loại từ</p>
+  <div class="chips" id="types" role="group" aria-labelledby="lblTypes"></div>
   <label for="inMeaning">Nghĩa</label>
   <textarea id="inMeaning" rows="2" autocapitalize="none" placeholder="bù đắp cho"></textarea>
   <label for="inExample">Ví dụ</label>
   <textarea id="inExample" rows="3" placeholder="He stayed late to *make up for* the lost time."></textarea>
   <p class="info tip">Bọc *cụm từ* để tô đậm. Mỗi ví dụ một dòng.</p>
-  <label for="inType">Loại từ</label>
-  <div class="pick">
-    <select id="inType">
-      <option value="">Chưa chọn</option>
-      <option value="noun">noun (danh từ)</option>
-      <option value="verb">verb (động từ)</option>
-      <option value="adjective">adjective (tính từ)</option>
-      <option value="adverb">adverb (trạng từ)</option>
-      <option value="pronoun">pronoun (đại từ)</option>
-      <option value="preposition">preposition (giới từ)</option>
-      <option value="conjunction">conjunction (liên từ)</option>
-      <option value="interjection">interjection (thán từ)</option>
-      <option value="phrasal verb">phrasal verb (cụm động từ)</option>
-      <option value="idiom">idiom (thành ngữ)</option>
-      <option value="phrase">phrase (cụm từ)</option>
-      <option value="grammar">grammar (ngữ pháp)</option>
-    </select>
-  </div>
   <div class="actions">
     <button id="btnAddClose" type="button">Đóng</button>
     <button id="btnAddSave" type="button" class="primary">Thêm</button>
@@ -400,7 +397,17 @@
 <script>
 'use strict';
 
-const KEYS = { items: 'tv.items', pending: 'tv.pending', settings: 'tv.settings', lastSync: 'tv.lastSync' };
+const KEYS = { items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', settings: 'tv.settings', lastSync: 'tv.lastSync' };
+
+// Loại từ trong bảng nhập: [giá trị ghi vào Sheet, viết tắt đặt trước nghĩa, nghĩa tiếng Việt]
+const TYPES = [
+  ['noun', 'n', 'danh từ'], ['verb', 'v', 'động từ'], ['adjective', 'adj', 'tính từ'], ['adverb', 'adv', 'trạng từ'],
+  ['pronoun', 'pron', 'đại từ'], ['preposition', 'prep', 'giới từ'], ['conjunction', 'conj', 'liên từ'],
+  ['interjection', 'interj', 'thán từ'], ['phrasal verb', 'phr v', 'cụm động từ'], ['idiom', 'idiom', 'thành ngữ'],
+  ['phrase', 'phrase', 'cụm từ'], ['grammar', 'grammar', 'ngữ pháp']
+];
+// Dòng nghĩa mở đầu bằng loại viết tắt: (n) cuộc chạy
+const PREFIX = /^\([^)]{1,15}\)/;
 
 // Script chung do người quản lý app deploy bằng Gmail bot (xem README).
 // Để trống thì người dùng phải tự dựng script và dán link /exec của họ vào ⚙.
@@ -424,12 +431,14 @@ const DEMO = [
 
 let items = [];                        // toàn bộ thẻ; từ thêm trong app mà Sheet chưa nhận thì có local: true
 let pending = {};                      // thay đổi chưa đồng bộ: { id: { lastSeen, mastered } }
+let edits = {};                        // bản sửa chưa đồng bộ: { id: { meaning: { from, to }, … } }
 let settings = { sheet: '', key: '', url: '' }; // url: link script riêng, bỏ trống thì dùng SHARED_URL
 let lastSync = '';
 let current = null;                    // thẻ đang hiện
 let demo = false, busy = false, syncing = false, drag = null, toastTimer = 0;
+let editing = null, before = null, filled = null, lookupTimer = 0;  // bảng đang sửa thẻ nào, và các ô trước/sau khi nạp
 let $card, $stats, $badge, $sync, $master, $next, $hint, $toast, $toastMsg, $toastAct, $dlg, $sheet, $key, $url, $help, $info;
-let $add, $term, $meaning, $example, $type, $addSave;
+let $add, $addTitle, $addMsg, $types, $term, $meaning, $example, $addSave;
 
 /* ---------- Hàm tiện ích ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -453,6 +462,10 @@ function esc(s) {
 // *cụm từ*  →  cụm từ in đậm, tô dạ quang
 function rich(s) { return esc(s).replace(/\*(.+?)\*/g, '<b>$1</b>'); }
 function lines(s) { return String(s == null ? '' : s).split(/\r?\n/).map(l => l.trim()).filter(Boolean); }
+// "noun, verb" → ['noun', 'verb']
+function typesOf(type) { return String(type == null ? '' : type).split(',').map(t => t.trim()).filter(Boolean); }
+// So từ: không phân biệt hoa thường và khoảng trắng thừa
+function normTerm(s) { return String(s == null ? '' : s).normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase(); }
 // ID của Sheet: lấy từ link …/spreadsheets/d/<ID>/edit (kể cả dạng /u/1/d/), hoặc nhận thẳng ID
 function sheetIdOf(s) {
   const m = /\/spreadsheets\/(?:u\/\d+\/)?d\/([\w-]{20,})/.exec(s) || /^([\w-]{20,})$/.exec(s);
@@ -503,13 +516,13 @@ function store(key, value) {
 }
 function persist() {
   if (demo) return true;
-  const ok = store(KEYS.items, items) && store(KEYS.pending, pending);
+  const ok = store(KEYS.items, items) && store(KEYS.pending, pending) && store(KEYS.edits, edits);
   if (!ok) toast('Không lưu được vào bộ nhớ máy. Kiểm tra dung lượng trống.');
   return ok;
 }
-// Số thẻ có thay đổi chưa gửi lên Sheet: tiến độ học, hoặc là từ mới thêm trong app (mỗi thẻ tính một lần)
+// Số thẻ có thay đổi chưa gửi lên Sheet: tiến độ học, bản sửa, hoặc là từ mới thêm trong app (mỗi thẻ tính một lần)
 function unsynced() {
-  const ids = new Set(Object.keys(pending));
+  const ids = new Set(Object.keys(pending).concat(Object.keys(edits)));
   items.forEach(x => { if (x.local) ids.add(x.id); });
   return ids.size;
 }
@@ -520,6 +533,23 @@ function recordChange(item, patch) {
     persist();
   }
   renderTop();
+}
+// Bản sửa chưa gửi được thì trả về hàng đợi; ô nào sửa thêm trong lúc chờ thì giữ "from" cũ, "to" mới
+function keepEdits(sent) {
+  Object.keys(sent).forEach(id => {
+    const ed = Object.assign({}, sent[id]);
+    Object.keys(edits[id] || {}).forEach(name => {
+      ed[name] = { from: sent[id][name] ? sent[id][name].from : edits[id][name].from, to: edits[id][name].to };
+    });
+    edits[id] = ed;
+  });
+}
+// Áp các bản sửa còn trong máy lên thẻ vừa nhận từ Sheet
+function applyEdits() {
+  Object.keys(edits).forEach(id => {
+    const it = items.find(x => x.id === id);
+    if (it) Object.keys(edits[id]).forEach(name => { it[name] = edits[id][name].to; });
+  });
 }
 
 /* ---------- Giao diện ---------- */
@@ -545,19 +575,21 @@ function renderCard() {
       : 'Sheet chưa có từ nào.<br>Bấm + để thêm từ mới.'}</p>`;
     return;
   }
-  const k = kindOf(it.type);
-  const meaning = lines(it.meaning).map(rich).join('<br>');
+  const kinds = typesOf(it.type).map(kindOf);
+  // (n) cuộc chạy: phần loại từ ở đầu dòng in nghiêng
+  const meaning = lines(it.meaning).map(l => rich(l).replace(PREFIX, '<i>$&</i>')).join('<br>');
   const examples = lines(it.example)
     .map((l, i) => `<p class="ex">${i === 0 ? '<i>e.g.</i> ' : ''}${rich(l)}</p>`)
     .join('');
   const seen = validDate(it.lastSeen)
     ? `${fmtDate(it.lastSeen)} (${agoText(daysAgo(it.lastSeen))})`
     : 'chưa xem';
-  $card.className = k.cls ? `card ${k.cls}` : 'card';
+  const edit = demo ? '' : '<button class="edit" type="button" aria-label="Sửa thẻ này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>';
+  $card.className = kinds.some(k => k.cls === 'grammar') ? 'card grammar' : 'card';
   $card.innerHTML = `
     <div class="head"><h1 class="term">${esc(it.term)}</h1></div>
     <div class="body">${meaning ? `<p class="meaning">${meaning}</p>` : ''}${examples}</div>
-    <div class="foot"><span>${esc(k.label)}</span><span>last seen: ${seen}</span></div>`;
+    <div class="foot"><span>${esc(kinds.map(k => k.label).join(', '))}</span><span class="seen">last seen: ${seen}</span>${edit}</div>`;
 }
 
 function show(it) { current = it; renderCard(); }
@@ -652,28 +684,179 @@ function toast(msg, actionLabel, action) {
 }
 function hideToast() { $toast.classList.remove('show'); }
 
-/* ---------- Thêm từ mới ----------
-   Từ mới vào bộ thẻ ngay, kể cả lúc không có mạng. Lần đồng bộ sau, script ghi nó vào cuối tab từ vựng. */
-function checkAdd() { $addSave.disabled = !$term.value.trim(); }
-function openAdd() {
-  checkAdd();                            // bấm Đóng thì chữ đang gõ vẫn còn đó, mở lại gõ tiếp được
+/* ---------- Thêm và sửa từ ----------
+   Mỗi từ một thẻ: gõ một từ đã có thì bảng chuyển sang sửa thẻ đó, không thêm thẻ trùng.
+   Từ mới và bản sửa vào máy ngay, kể cả lúc không có mạng; lần đồng bộ sau mới ghi vào Sheet. */
+function findWord(term) {
+  const k = normTerm(term);
+  return demo || !k ? null : items.find(x => normTerm(x.term) === k) || null;
+}
+function chip(value, title) {
+  const el = document.createElement('label');
+  el.className = 'chip';
+  if (title) el.title = title;
+  el.innerHTML = `<input type="checkbox" value="${esc(value)}"><span>${esc(value)}</span>`;
+  return el;
+}
+function chipInputs() { return Array.from($types.querySelectorAll('input')); }
+function checkedTypes() { return chipInputs().filter(x => x.checked).map(x => x.value); }
+// Tick đúng các loại trong list. Loại không có sẵn (vd. vocab ở dòng cũ) thì thêm nút riêng, để lưu lại không mất
+function setTypes(list) {
+  $types.querySelectorAll('.extra').forEach(el => el.remove());
+  const want = new Set(list.map(t => t.toLowerCase()));
+  chipInputs().forEach(x => { x.checked = want.delete(x.value.toLowerCase()); });
+  list.forEach(t => {
+    if (!want.delete(t.toLowerCase())) return;
+    const el = chip(t);
+    el.classList.add('extra');
+    el.querySelector('input').checked = true;
+    $types.append(el);
+  });
+}
+function sameTypes(a, b) {
+  const x = new Set(a.map(t => t.toLowerCase())), y = new Set(b.map(t => t.toLowerCase()));
+  return x.size === y.size && Array.from(y).every(t => x.has(t));
+}
+function abbr(type) {
+  const t = TYPES.find(x => x[0] === type.toLowerCase());
+  return t ? t[1] : type;
+}
+// Nghĩa để lưu: bỏ dòng trống và dòng chỉ có (v) mà chưa ghi nghĩa
+function cleanMeaning(v) { return lines(v).filter(l => l.replace(PREFIX, '').trim()).join('\n'); }
+// Các dòng của a, thêm những dòng của b mà a chưa có
+function mergeLines(a, b) {
+  const ls = lines(a);
+  lines(b).forEach(l => { if (!ls.includes(l)) ls.push(l); });
+  return ls.join('\n');
+}
+function formState() { return { types: checkedTypes(), meaning: $meaning.value, example: $example.value }; }
+// Những ô trong bảng khác với thẻ
+function formDiff(it) {
+  const diff = {};
+  const meaning = cleanMeaning($meaning.value), example = lines($example.value).join('\n');
+  if (meaning !== lines(it.meaning).join('\n')) diff.meaning = meaning;
+  if (example !== lines(it.example).join('\n')) diff.example = example;
+  if (!sameTypes(checkedTypes(), typesOf(it.type))) diff.type = checkedTypes().join(', ');
+  return diff;
+}
+function checkAdd() {
+  $addSave.disabled = !$term.value.trim() || (!!editing && !Object.keys(formDiff(editing)).length);
+}
+
+// Tick loại thứ hai trở đi: mỗi loại một dòng nghĩa mở đầu bằng (n), (v)…, các dòng chưa ghi loại là của loại tick trước.
+// Bỏ tick thì chỉ xoá dòng của loại đó nếu dòng còn trống.
+function onTypeChange(e) {
+  const t = e.target.value;
+  if (!e.target.checked) {
+    const tag = `(${abbr(t)})`;
+    $meaning.value = $meaning.value.split('\n').filter(l => l.trim() !== tag).join('\n');
+  } else if (checkedTypes().length >= 2) {
+    const ticked = checkedTypes();
+    let ls = lines($meaning.value);
+    if (ls.length && !ls.some(l => PREFIX.test(l))) {
+      const first = abbr(ticked.find(x => x !== t));
+      ls = ls.map(l => `(${first}) ${l}`);
+    }
+    ticked.forEach(x => {
+      const tag = `(${abbr(x)})`;
+      if (!ls.some(l => l.startsWith(tag))) ls.push(tag);
+    });
+    // dòng mới chỉ có (v) thì chừa sẵn dấu cách để gõ nghĩa tiếp
+    $meaning.value = ls.map(l => l.replace(PREFIX, '').trim() ? l : l + ' ').join('\n');
+  }
+  checkAdd();
+}
+
+// Gõ ra một từ đã có: chuyển sang sửa thẻ đó. Loại đã tick và chữ đã gõ ở Nghĩa, Ví dụ được ghép vào thẻ
+function startEdit(it) {
+  before = formState();
+  setTypes(typesOf(it.type).concat(before.types));
+  $meaning.value = mergeLines(it.meaning, before.meaning);
+  $example.value = mergeLines(it.example, before.example);
+  editing = it;
+  filled = formState();
+  $addTitle.textContent = 'Sửa từ';
+  $addSave.textContent = 'Cập nhật';
+  $addMsg.textContent = `“${it.term}” đã có trong bộ thẻ, bạn đang sửa thẻ này.${it.mastered ? ' Thẻ này đã nắm rõ.' : ''}`;
+  $addMsg.hidden = false;
+}
+// Thôi sửa. restore: ô nào chưa sửa từ lúc nạp thì trả về như trước khi nạp
+function stopEdit(restore) {
+  if (restore) {
+    const now = formState();
+    if (now.meaning === filled.meaning) $meaning.value = before.meaning;
+    if (now.example === filled.example) $example.value = before.example;
+    if (sameTypes(now.types, filled.types)) setTypes(before.types);
+  }
+  editing = before = filled = null;
+  $addTitle.textContent = 'Thêm từ mới';
+  $addSave.textContent = 'Thêm';
+  $addMsg.hidden = true;
+}
+function resetForm() {
+  clearTimeout(lookupTimer);
+  if (editing) stopEdit(false);
+  $term.value = $meaning.value = $example.value = '';
+  setTypes([]);
+}
+// Tra xem từ trong ô Từ đã có trong bộ thẻ chưa
+function lookup() {
+  clearTimeout(lookupTimer);
+  const found = findWord($term.value);
+  if (found !== editing) {
+    if (editing) stopEdit(true);
+    if (found) startEdit(found);
+  }
+  checkAdd();
+}
+function openAdd(it) {
+  if (it) {                              // nút ✎: mở bảng sửa cho thẻ đang xem
+    resetForm();
+    $term.value = it.term;
+    startEdit(it);
+  } else {
+    lookup();                            // bản nháp còn lại có thể trùng từ vừa đồng bộ về
+  }
+  checkAdd();
   if (!$add.open) $add.showModal();
+}
+function saveWord() {
+  if (!editing) {
+    lookup();
+    if (editing) return;                 // vừa nhận ra từ đã có: để bạn xem nội dung cũ rồi mới bấm Cập nhật
+  }
+  if ($addSave.disabled) { if (!$term.value.trim()) $term.focus(); return; }
+  if (editing) updateWord(); else addWord();
 }
 function addWord() {
   const term = $term.value.trim();
-  if (!term) { $term.focus(); return; }
   const it = {
-    id: newId(), type: $type.value, term,
-    meaning: lines($meaning.value).join('\n'), example: lines($example.value).join('\n'),
+    id: newId(), type: checkedTypes().join(', '), term,
+    meaning: cleanMeaning($meaning.value), example: lines($example.value).join('\n'),
     lastSeen: '', mastered: false, local: true
   };
   if (demo) { items = []; demo = false; }  // từ đầu tiên của bạn thay cho thẻ mẫu
   items.push(it);
+  saved(it, `Đã thêm “${term}”. Bấm ↻ để gửi lên Sheet.`);
+}
+// Sửa thẻ trong máy ngay, và ghi lại bản sửa để gửi lên Sheet.
+// Sửa nhiều lần trước khi đồng bộ thì giữ "from" của lần đầu; sửa về như cũ thì bỏ.
+function updateWord() {
+  const it = editing, diff = formDiff(it), ed = edits[it.id] || {};
+  Object.keys(diff).forEach(name => {
+    const from = ed[name] ? ed[name].from : it[name];
+    if (from === diff[name]) delete ed[name]; else ed[name] = { from, to: diff[name] };
+  });
+  if (Object.keys(ed).length) edits[it.id] = ed; else delete edits[it.id];
+  Object.assign(it, diff);
+  saved(it, `Đã sửa “${it.term}”. Bấm ↻ để gửi lên Sheet.`);
+}
+function saved(it, msg) {
+  resetForm();
   $add.close();
-  [$term, $meaning, $example, $type].forEach(el => { el.value = ''; });
   show(it);
   renderTop();
-  if (persist()) toast(`Đã thêm “${term}”. Bấm ↻ để gửi lên Sheet.`);
+  if (persist()) toast(msg);
 }
 
 /* ---------- Đồng bộ với Google Sheet ---------- */
@@ -684,15 +867,18 @@ async function sync() {
   $sync.classList.add('busy');
   const sending = pending;
   pending = {};
+  const fixing = edits;                          // sửa thêm trong lúc chờ thì vào edits mới, gửi lần sau
+  edits = {};
   const adding = items.filter(x => x.local);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
   try {
     const changes = Object.keys(sending).map(id => Object.assign({ id }, sending[id]));
+    const fixes = Object.keys(fixing).map(id => Object.assign({ id }, fixing[id]));
     // body là chuỗi nên trình duyệt gửi dạng text/plain, Apps Script nhận được mà không vướng CORS
     const res = await fetch(scriptUrl(), {
       method: 'POST',
-      body: JSON.stringify({ sheet: sheetIdOf(settings.sheet), key: settings.key, changes, adds: adding }),
+      body: JSON.stringify({ sheet: sheetIdOf(settings.sheet), key: settings.key, changes, adds: adding, edits: fixes }),
       signal: ctrl.signal
     });
     const text = await res.text();
@@ -713,23 +899,38 @@ async function sync() {
     demo = false;
     const got = Array.isArray(data.items) ? data.items : [];
     const ids = new Set(got.map(x => x.id));
+    // Bản sửa: Sheet đã có nội dung mới thì xong; nằm trong conflicts thì Sheet giữ bản của nó;
+    // script cũ chưa biết sửa (không trả conflicts) thì giữ lại gửi lần sau
+    const conflicts = Array.isArray(data.conflicts) ? data.conflicts : null;
+    const lost = [];
+    let kept = false;
+    Object.keys(fixing).forEach(id => {
+      const it = got.find(x => x.id === id);
+      if (it && Object.keys(fixing[id]).every(name => it[name] === fixing[id][name].to)) return;
+      if (!conflicts) { keepEdits({ [id]: fixing[id] }); kept = true; }
+      else if (conflicts.includes(id)) lost.push(it ? it.term : '');
+    });
     // Từ mới Sheet chưa nhận thì giữ lại trong máy: từ thêm trong lúc chờ đồng bộ, hoặc script còn là bản cũ
     items = got.concat(items.filter(x => x.local && !ids.has(x.id)));
-    const outdated = adding.some(x => !ids.has(x.id));
+    const outdated = kept || adding.some(x => !ids.has(x.id));
     Object.keys(pending).forEach(id => {        // thao tác làm trong lúc đang chờ đồng bộ
       const it = items.find(x => x.id === id);
       if (it) Object.assign(it, pending[id]);
     });
+    applyEdits();
     lastSync = new Date().toISOString();
     store(KEYS.lastSync, lastSync);
     persist();
     const same = !wasDemo && current ? items.find(x => x.id === current.id && !x.mastered) : null;
     if (same) show(same); else next();
     toast(data.key ? `Đã thiết lập Sheet, mã bí mật là ${data.key}. Xem lại trong ⚙.`
-      : outdated ? 'Script chưa được cập nhật nên chưa nhận từ mới. Từ mới vẫn lưu trong máy.'
+      : outdated ? 'Script chưa được cập nhật nên chưa nhận từ mới và bản sửa. Thay đổi vẫn lưu trong máy.'
+      : lost.length === 1 && lost[0] ? `Bản sửa “${lost[0]}” không được ghi vì từ này vừa đổi trong Sheet.`
+      : lost.length ? `${lost.length} bản sửa không được ghi vì từ đã đổi hoặc bị xoá trong Sheet.`
       : `Đã đồng bộ ${got.length} thẻ`);
   } catch (err) {
     Object.keys(sending).forEach(id => { pending[id] = Object.assign({}, sending[id], pending[id]); });
+    keepEdits(fixing);
     persist();
     toast(!navigator.onLine ? 'Chưa có mạng. Thay đổi vẫn lưu trong máy, có mạng thì bấm đồng bộ lại.'
       : err.name === 'AbortError' ? 'Script không trả lời sau 30 giây. Bấm đồng bộ lại.'
@@ -778,8 +979,9 @@ function init() {
   $master = $('btnMaster'); $next = $('btnNext'); $hint = $('hint'); $toast = $('toast'); $toastMsg = $('toastMsg');
   $toastAct = $('toastAct'); $dlg = $('dlg'); $sheet = $('inSheet'); $key = $('inKey'); $url = $('inUrl');
   $help = $('help'); $info = $('info');
-  $add = $('dlgAdd'); $term = $('inTerm'); $meaning = $('inMeaning'); $example = $('inExample'); $type = $('inType');
-  $addSave = $('btnAddSave');
+  $add = $('dlgAdd'); $addTitle = $('addTitle'); $addMsg = $('addMsg'); $types = $('types');
+  $term = $('inTerm'); $meaning = $('inMeaning'); $example = $('inExample'); $addSave = $('btnAddSave');
+  TYPES.forEach(([value, , vi]) => $types.append(chip(value, vi)));
   if (SHARED_URL) {
     $('lblUrl').textContent = 'Link Apps Script riêng (không bắt buộc)';
     $url.placeholder = 'Bỏ trống để dùng script chung';
@@ -791,6 +993,7 @@ function init() {
 
   items = load(KEYS.items, []);
   pending = load(KEYS.pending, {});
+  edits = load(KEYS.edits, {});
   settings = Object.assign({ sheet: '', key: '', url: '' }, load(KEYS.settings, {}));
   lastSync = load(KEYS.lastSync, '');
   if (!items.length && !lastSync) {
@@ -811,15 +1014,24 @@ function init() {
   $('btnSave').addEventListener('click', saveSettings);
   $('btnClose').addEventListener('click', () => $dlg.close());
   [$sheet, $key, $url].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') saveSettings(); }));
-  $('btnAdd').addEventListener('click', openAdd);
-  $addSave.addEventListener('click', addWord);
+  $('btnAdd').addEventListener('click', () => openAdd());
+  $card.addEventListener('click', e => { if (!busy && current && e.target.closest('.edit')) openAdd(current); });
+  $addSave.addEventListener('click', saveWord);
   $('btnAddClose').addEventListener('click', () => $add.close());
-  $term.addEventListener('input', checkAdd);
-  // Enter ở ô Từ thì sang ô Nghĩa; Ctrl+Enter (Mac: ⌘+Enter) ở ô nào cũng là bấm Thêm
+  $add.addEventListener('close', () => { if (editing) resetForm(); });  // đóng bảng sửa thì bỏ phần chưa bấm Cập nhật
+  // Ngừng gõ ô Từ một chút thì tra xem từ đã có chưa
+  $term.addEventListener('input', () => {
+    checkAdd();
+    clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(() => { if ($add.open) lookup(); }, 400);
+  });
+  [$meaning, $example].forEach(el => el.addEventListener('input', checkAdd));
+  $types.addEventListener('change', onTypeChange);
+  // Enter ở ô Từ: tra từ rồi sang ô Nghĩa; Ctrl+Enter (Mac: ⌘+Enter) ở ô nào cũng là bấm nút chính
   $add.addEventListener('keydown', e => {
     if (e.key !== 'Enter' || e.isComposing) return;
-    if (e.ctrlKey || e.metaKey) { e.preventDefault(); addWord(); }
-    else if (e.target === $term) { e.preventDefault(); $meaning.focus(); }
+    if (e.ctrlKey || e.metaKey) { e.preventDefault(); saveWord(); }
+    else if (e.target === $term) { e.preventDefault(); lookup(); $meaning.focus(); }
   });
   document.addEventListener('keydown', e => {
     if ($dlg.open || $add.open) return;
