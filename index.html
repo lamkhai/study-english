@@ -29,6 +29,8 @@
     --badge: #ffe45c;
     --line-vocab: #e26868;
     --line-grammar: #3c9a6d;
+    --danger: #c43a31;
+    --danger-fill: #c43a31;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
@@ -45,6 +47,7 @@
       --mark-from: 76%;
       --line-vocab: #d36767;
       --line-grammar: #4bae80;
+      --danger: #f08a80;
       color-scheme: dark;
     }
   }
@@ -314,6 +317,8 @@
   }
   .actions .primary { flex: 1.7; border-color: transparent; background: var(--ink); color: var(--paper); }
   .actions .primary:disabled { opacity: .35; cursor: default; }
+  .actions .del { color: var(--danger); }
+  .actions .primary.danger { background: var(--danger-fill); color: #fff; }
 
   @media (prefers-reduced-motion: reduce) {
     .card, .toast { transition: none; }
@@ -389,15 +394,27 @@
   <textarea id="inExample" rows="3" placeholder="He stayed late to *make up for* the lost time."></textarea>
   <p class="info tip">Bọc *cụm từ* để tô đậm. Mỗi ví dụ một dòng.</p>
   <div class="actions">
+    <button id="btnAddDel" type="button" class="del" hidden>Xoá</button>
     <button id="btnAddClose" type="button">Đóng</button>
     <button id="btnAddSave" type="button" class="primary">Thêm</button>
+  </div>
+</dialog>
+
+<dialog id="dlgDel">
+  <h2 id="delTitle">Xoá từ này?</h2>
+  <p class="info" id="delText"></p>
+  <div class="actions">
+    <button id="btnDelCancel" type="button">Huỷ</button>
+    <button id="btnDelOk" type="button" class="primary danger">Xoá</button>
   </div>
 </dialog>
 
 <script>
 'use strict';
 
-const KEYS = { items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', settings: 'tv.settings', lastSync: 'tv.lastSync' };
+const KEYS = {
+  items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', deletes: 'tv.deletes', settings: 'tv.settings', lastSync: 'tv.lastSync'
+};
 
 // Loại từ trong bảng nhập: [giá trị ghi vào Sheet, viết tắt đặt trước nghĩa, nghĩa tiếng Việt]
 const TYPES = [
@@ -432,13 +449,14 @@ const DEMO = [
 let items = [];                        // toàn bộ thẻ; từ thêm trong app mà Sheet chưa nhận thì có local: true
 let pending = {};                      // thay đổi chưa đồng bộ: { id: { lastSeen, mastered } }
 let edits = {};                        // bản sửa chưa đồng bộ: { id: { meaning: { from, to }, … } }
+let deletes = {};                      // từ đã xoá trong app, chờ xoá trong Sheet: { id: { term } }
 let settings = { sheet: '', key: '', url: '' }; // url: link script riêng, bỏ trống thì dùng SHARED_URL
 let lastSync = '';
 let current = null;                    // thẻ đang hiện
 let demo = false, busy = false, syncing = false, drag = null, toastTimer = 0;
 let editing = null, before = null, filled = null, lookupTimer = 0;  // bảng đang sửa thẻ nào, và các ô trước/sau khi nạp
 let $card, $stats, $badge, $sync, $master, $next, $hint, $toast, $toastMsg, $toastAct, $dlg, $sheet, $key, $url, $help, $info;
-let $add, $addTitle, $addMsg, $types, $term, $meaning, $example, $addSave;
+let $add, $addTitle, $addMsg, $types, $term, $meaning, $example, $addSave, $addDel, $del, $delTitle, $delText;
 
 /* ---------- Hàm tiện ích ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -516,13 +534,14 @@ function store(key, value) {
 }
 function persist() {
   if (demo) return true;
-  const ok = store(KEYS.items, items) && store(KEYS.pending, pending) && store(KEYS.edits, edits);
+  const ok = store(KEYS.items, items) && store(KEYS.pending, pending) && store(KEYS.edits, edits)
+    && store(KEYS.deletes, deletes);
   if (!ok) toast('Không lưu được vào bộ nhớ máy. Kiểm tra dung lượng trống.');
   return ok;
 }
-// Số thẻ có thay đổi chưa gửi lên Sheet: tiến độ học, bản sửa, hoặc là từ mới thêm trong app (mỗi thẻ tính một lần)
+// Số thẻ có thay đổi chưa gửi lên Sheet: tiến độ học, bản sửa, từ đã xoá, hoặc từ mới thêm trong app (mỗi thẻ tính một lần)
 function unsynced() {
-  const ids = new Set(Object.keys(pending).concat(Object.keys(edits)));
+  const ids = new Set(Object.keys(pending).concat(Object.keys(edits), Object.keys(deletes)));
   items.forEach(x => { if (x.local) ids.add(x.id); });
   return ids.size;
 }
@@ -779,6 +798,7 @@ function startEdit(it) {
   $addSave.textContent = 'Cập nhật';
   $addMsg.textContent = `“${it.term}” đã có trong bộ thẻ, bạn đang sửa thẻ này.${it.mastered ? ' Thẻ này đã nắm rõ.' : ''}`;
   $addMsg.hidden = false;
+  $addDel.hidden = false;
 }
 // Thôi sửa. restore: ô nào chưa sửa từ lúc nạp thì trả về như trước khi nạp
 function stopEdit(restore) {
@@ -792,6 +812,7 @@ function stopEdit(restore) {
   $addTitle.textContent = 'Thêm từ mới';
   $addSave.textContent = 'Thêm';
   $addMsg.hidden = true;
+  $addDel.hidden = true;
 }
 function resetForm() {
   clearTimeout(lookupTimer);
@@ -859,6 +880,33 @@ function saved(it, msg) {
   if (persist()) toast(msg);
 }
 
+// Xoá từ đang sửa: hỏi lại trước khi xoá
+function askDelete() {
+  const it = editing;
+  if (!it) return;
+  $delTitle.textContent = `Xoá “${it.term}”?`;
+  $delText.textContent = it.local && !it.tried
+    ? 'Từ này chưa lên Sheet, xoá rồi là mất hẳn.'
+    : 'Thẻ sẽ mất khỏi bộ thẻ, và dòng của từ này trong Sheet bị xoá ở lần đồng bộ kế tiếp.';
+  $del.showModal();
+}
+function deleteWord() {
+  const it = editing;
+  $del.close();
+  if (!it) return;
+  items = items.filter(x => x !== it);
+  delete pending[it.id];
+  delete edits[it.id];
+  // Từ chưa từng gửi lên Sheet thì không cần báo script. Còn lại thì xoá dòng trong Sheet ở lần đồng bộ sau
+  const inSheet = !it.local || it.tried || syncing;
+  if (inSheet) deletes[it.id] = { term: it.term };
+  resetForm();
+  $add.close();
+  if (current === it) next(); else renderCard();
+  renderTop();
+  if (persist()) toast(inSheet ? `Đã xoá “${it.term}”. Bấm ↻ để xoá trong Sheet.` : `Đã xoá “${it.term}”.`);
+}
+
 /* ---------- Đồng bộ với Google Sheet ---------- */
 async function sync() {
   if (syncing) return;
@@ -869,16 +917,21 @@ async function sync() {
   pending = {};
   const fixing = edits;                          // sửa thêm trong lúc chờ thì vào edits mới, gửi lần sau
   edits = {};
+  const dropping = deletes;                      // xoá thêm trong lúc chờ cũng vậy
+  deletes = {};
   const adding = items.filter(x => x.local);
+  adding.forEach(x => { x.tried = true; });      // đã gửi đi: xoá từ này sau đó thì phải báo cả Sheet
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
   try {
     const changes = Object.keys(sending).map(id => Object.assign({ id }, sending[id]));
     const fixes = Object.keys(fixing).map(id => Object.assign({ id }, fixing[id]));
+    const removes = Object.keys(dropping).map(id => ({ id, term: dropping[id].term }));
     // body là chuỗi nên trình duyệt gửi dạng text/plain, Apps Script nhận được mà không vướng CORS
     const res = await fetch(scriptUrl(), {
       method: 'POST',
-      body: JSON.stringify({ sheet: sheetIdOf(settings.sheet), key: settings.key, changes, adds: adding, edits: fixes }),
+      body: JSON.stringify({ sheet: sheetIdOf(settings.sheet), key: settings.key, changes, adds: adding, edits: fixes,
+        deletes: removes }),
       signal: ctrl.signal
     });
     const text = await res.text();
@@ -910,8 +963,18 @@ async function sync() {
       if (!conflicts) { keepEdits({ [id]: fixing[id] }); kept = true; }
       else if (conflicts.includes(id)) lost.push(it ? it.term : '');
     });
-    // Từ mới Sheet chưa nhận thì giữ lại trong máy: từ thêm trong lúc chờ đồng bộ, hoặc script còn là bản cũ
-    items = got.concat(items.filter(x => x.local && !ids.has(x.id)));
+    // Từ đã xoá: script mới trả lại id đã xoá trong deleted. Nằm trong conflicts thì Sheet giữ dòng đó (term vừa bị đổi);
+    // script cũ chưa biết xoá (không trả deleted) thì giữ lại gửi lần sau
+    const gone = Array.isArray(data.deleted) ? data.deleted : null;
+    const undeleted = [];
+    Object.keys(dropping).forEach(id => {
+      if (gone && gone.includes(id)) return;
+      if (gone && conflicts && conflicts.includes(id)) undeleted.push(dropping[id].term);
+      else { deletes[id] = dropping[id]; kept = true; }
+    });
+    // Từ mới Sheet chưa nhận thì giữ lại trong máy: từ thêm trong lúc chờ đồng bộ, hoặc script còn là bản cũ.
+    // Từ đã xoá mà Sheet chưa xoá thì vẫn ẩn
+    items = got.concat(items.filter(x => x.local && !ids.has(x.id))).filter(x => !deletes[x.id]);
     const outdated = kept || adding.some(x => !ids.has(x.id));
     Object.keys(pending).forEach(id => {        // thao tác làm trong lúc đang chờ đồng bộ
       const it = items.find(x => x.id === id);
@@ -924,13 +987,16 @@ async function sync() {
     const same = !wasDemo && current ? items.find(x => x.id === current.id && !x.mastered) : null;
     if (same) show(same); else next();
     toast(data.key ? `Đã thiết lập Sheet, mã bí mật là ${data.key}. Xem lại trong ⚙.`
-      : outdated ? 'Script chưa được cập nhật nên chưa nhận từ mới và bản sửa. Thay đổi vẫn lưu trong máy.'
+      : outdated ? 'Script chưa được cập nhật nên chưa nhận thay đổi từ app. Thay đổi vẫn lưu trong máy.'
       : lost.length === 1 && lost[0] ? `Bản sửa “${lost[0]}” không được ghi vì từ này vừa đổi trong Sheet.`
       : lost.length ? `${lost.length} bản sửa không được ghi vì từ đã đổi hoặc bị xoá trong Sheet.`
+      : undeleted.length === 1 ? `“${undeleted[0]}” không xoá được vì từ này vừa đổi trong Sheet.`
+      : undeleted.length ? `${undeleted.length} từ không xoá được vì vừa đổi trong Sheet.`
       : `Đã đồng bộ ${got.length} thẻ`);
   } catch (err) {
     Object.keys(sending).forEach(id => { pending[id] = Object.assign({}, sending[id], pending[id]); });
     keepEdits(fixing);
+    Object.assign(deletes, dropping);
     persist();
     toast(!navigator.onLine ? 'Chưa có mạng. Thay đổi vẫn lưu trong máy, có mạng thì bấm đồng bộ lại.'
       : err.name === 'AbortError' ? 'Script không trả lời sau 30 giây. Bấm đồng bộ lại.'
@@ -981,6 +1047,7 @@ function init() {
   $help = $('help'); $info = $('info');
   $add = $('dlgAdd'); $addTitle = $('addTitle'); $addMsg = $('addMsg'); $types = $('types');
   $term = $('inTerm'); $meaning = $('inMeaning'); $example = $('inExample'); $addSave = $('btnAddSave');
+  $addDel = $('btnAddDel'); $del = $('dlgDel'); $delTitle = $('delTitle'); $delText = $('delText');
   TYPES.forEach(([value, , vi]) => $types.append(chip(value, vi)));
   if (SHARED_URL) {
     $('lblUrl').textContent = 'Link Apps Script riêng (không bắt buộc)';
@@ -994,6 +1061,7 @@ function init() {
   items = load(KEYS.items, []);
   pending = load(KEYS.pending, {});
   edits = load(KEYS.edits, {});
+  deletes = load(KEYS.deletes, {});
   settings = Object.assign({ sheet: '', key: '', url: '' }, load(KEYS.settings, {}));
   lastSync = load(KEYS.lastSync, '');
   if (!items.length && !lastSync) {
@@ -1018,6 +1086,9 @@ function init() {
   $card.addEventListener('click', e => { if (!busy && current && e.target.closest('.edit')) openAdd(current); });
   $addSave.addEventListener('click', saveWord);
   $('btnAddClose').addEventListener('click', () => $add.close());
+  $addDel.addEventListener('click', askDelete);
+  $('btnDelCancel').addEventListener('click', () => $del.close());
+  $('btnDelOk').addEventListener('click', deleteWord);
   $add.addEventListener('close', () => { if (editing) resetForm(); });  // đóng bảng sửa thì bỏ phần chưa bấm Cập nhật
   // Ngừng gõ ô Từ một chút thì tra xem từ đã có chưa
   $term.addEventListener('input', () => {

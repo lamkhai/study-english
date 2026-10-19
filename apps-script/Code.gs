@@ -29,7 +29,7 @@ function doGet() {
   return json_({ ok: true, message: 'Script đang chạy. Tự dựng thì dán link này vào ⚙ trong app.' });
 }
 
-/** App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới và bản sửa, ghi vào Sheet, trả về toàn bộ thẻ. */
+/** App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới, bản sửa và từ đã xoá, ghi vào Sheet, trả về toàn bộ thẻ. */
 function doPost(e) {
   let body;
   try {
@@ -89,8 +89,9 @@ function doPost(e) {
     const changes = Array.isArray(body.changes) ? body.changes : [];
     const adds = Array.isArray(body.adds) ? body.adds : [];
     const edits = Array.isArray(body.edits) ? body.edits : [];
-    const out = sync_(words, changes, adds, edits);
-    const res = { ok: true, items: out.items, conflicts: out.conflicts };
+    const deletes = Array.isArray(body.deletes) ? body.deletes : [];
+    const out = sync_(words, changes, adds, edits, deletes);
+    const res = { ok: true, items: out.items, conflicts: out.conflicts, deleted: out.deleted };
     if (created) res.key = created;
     SpreadsheetApp.flush(); // ghi hết vào Sheet trước khi nhả khoá
     return json_(res);
@@ -101,7 +102,7 @@ function doPost(e) {
   }
 }
 
-function sync_(sheet, changes, adds, edits) {
+function sync_(sheet, changes, adds, edits, deletes) {
   // 1. Đọc tiêu đề ở hàng 1 (sheet trống thì tạo sẵn tiêu đề)
   if (sheet.getLastColumn() === 0) {
     sheet.getRange(1, 1, 1, INPUT_COLUMNS.length).setValues([INPUT_COLUMNS]);
@@ -179,7 +180,23 @@ function sync_(sheet, changes, adds, edits) {
     });
   });
 
-  // 5. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi
+  // 5. Từ đã xoá trong app: chỉ xoá khi dòng vẫn là từ đó, tức term chưa bị đổi trong Sheet. Dòng không còn thì coi
+  //    như đã xoá. Dòng được xoá thật ở cuối bước ghi, để không làm lệch số dòng lúc ghi.
+  const removed = new Set();
+  const deleted = [];
+  deletes.forEach(d => {
+    const id = text_(d && d.id);
+    if (!id) return;
+    const r = byId[id];
+    if (r && normTerm_(r[col.term]) !== normTerm_(d.term)) {
+      conflicts.push(id);
+      return;
+    }
+    if (r) removed.add(r);
+    deleted.push(id);
+  });
+
+  // 6. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi
   changes.forEach(ch => {
     const r = byId[text_(ch.id)];
     if (!r) return;
@@ -189,9 +206,9 @@ function sync_(sheet, changes, adds, edits) {
     if (typeof ch.mastered === 'boolean') r[col.mastered] = ch.mastered;
   });
 
-  // 6. Dòng của từ mới thì ghi cả 4 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 3 cột
+  // 7. Dòng của từ mới thì ghi cả 4 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 3 cột
   //    tự quản lý, không đụng tới các cột bạn nhập. Id và chữ ghi dạng chữ, để "0012ab34" hay "24/7" không bị
-  //    đổi thành số hay ngày tháng.
+  //    đổi thành số hay ngày tháng. Cuối cùng mới xoá dòng của từ đã xoá.
   if (all.length) {
     const short = all.length + 1 - sheet.getMaxRows();
     if (short > 0) sheet.insertRowsAfter(sheet.getMaxRows(), short);
@@ -212,10 +229,17 @@ function sync_(sheet, changes, adds, edits) {
     sheet.getRange(2, col.last_seen + 1, all.length, 1).setNumberFormat('dd/mm/yyyy hh:mm');
     sheet.getRange(2, col.mastered + 1, all.length, 1)
       .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+    // Xoá từ dưới lên để số dòng phía trên không đổi. Sheet không cho xoá hết các dòng không cố định,
+    // nên nếu cần thì thêm một dòng trống trước khi xoá.
+    const gone = all.map((r, i) => removed.has(r) ? i + 2 : 0).filter(Boolean);
+    if (gone.length) {
+      if (sheet.getMaxRows() - gone.length <= sheet.getFrozenRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 1);
+      gone.reverse().forEach(n => sheet.deleteRow(n));
+    }
   }
 
-  // 7. Trả toàn bộ thẻ về app, kèm id các bản sửa không ghi được
-  const items = all.filter(hasTerm).map(r => ({
+  // 8. Trả các thẻ còn lại về app, kèm id các bản sửa hay lệnh xoá không làm được, và id đã xoá
+  const items = all.filter(r => hasTerm(r) && !removed.has(r)).map(r => ({
     id: r[col.id],
     term: text_(r[col.term]),
     meaning: col.meaning === -1 ? '' : text_(r[col.meaning]),
@@ -224,7 +248,7 @@ function sync_(sheet, changes, adds, edits) {
     lastSeen: toIso_(r[col.last_seen]),
     mastered: r[col.mastered] === true || text_(r[col.mastered]).toUpperCase() === 'TRUE'
   }));
-  return { items, conflicts };
+  return { items, conflicts, deleted };
 }
 
 /** Tab mang thẻ ẩn của app (role là 'words' hoặc 'config'); người dùng đổi tên tab thì vẫn nhận ra. */
@@ -312,6 +336,11 @@ function newCode_() {
 
 function text_(v) {
   return v === null || v === undefined ? '' : String(v).trim();
+}
+
+/** So term như app: không phân biệt hoa thường và khoảng trắng thừa. */
+function normTerm_(v) {
+  return text_(v).normalize('NFC').replace(/\s+/g, ' ').toLowerCase();
 }
 
 function toDate_(v) {

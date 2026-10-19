@@ -99,7 +99,8 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Mỗi từ chỉ có một thẻ. Gõ một từ đã có (không phân biệt hoa thường) thì bảng chuyển sang **Sửa từ**, nạp sẵn loại từ, nghĩa, ví dụ của thẻ đó; sửa xong bấm **Cập nhật**. Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
 - Từ có nhiều loại: tick đủ các loại, app tự gắn `(n)`, `(v)`… vào ô Nghĩa để bạn ghi mỗi nghĩa một dòng.
 - Bản sửa được ghi vào Sheet ở lần đồng bộ kế tiếp. Nếu trong lúc đó ô ấy đã được sửa thẳng trong Sheet, app giữ bản trong Sheet và báo lại.
-- Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Xoá từ, hay sửa chữ của chính từ đó (cột `term`), thì làm trong Sheet.
+- Xoá từ: trong bảng **Sửa từ** bấm **Xoá**, rồi xác nhận. Thẻ mất khỏi bộ thẻ ngay, và dòng của từ đó trong Sheet bị xoá ở lần đồng bộ kế tiếp. Nếu trước đó chữ của từ (cột `term`) đã bị sửa thẳng trong Sheet, app không xoá dòng đó để tránh xoá nhầm, và báo lại.
+- Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Sửa chữ của chính từ đó (cột `term`) thì làm trong Sheet.
 
 ## Khi gặp lỗi
 
@@ -116,8 +117,9 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 | Sheet báo lỗi: script đang bận… | Nhiều người đang đồng bộ cùng lúc. Đợi vài giây rồi bấm ↻. |
 | Sheet báo lỗi: không thấy cột "term"… | Hàng 1 của tab `english` thiếu tiêu đề `term`. Gõ lại tiêu đề `term` vào hàng 1. |
 | Link chưa đúng… | (Cách B) Dùng link đuôi `/exec`, quyền *Anyone*, và Deploy bản mới nhất (xem lưu ý ở Bước 2). |
-| Script chưa được cập nhật nên chưa nhận từ mới và bản sửa… | Script đang chạy là bản cũ, chưa nhận được từ thêm hay bản sửa trong app. Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
+| Script chưa được cập nhật nên chưa nhận thay đổi từ app… | Script đang chạy là bản cũ, chưa nhận được từ thêm, bản sửa hay lệnh xoá từ app. Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
 | Bản sửa “…” không được ghi vì từ này vừa đổi trong Sheet | Ô đó đã được sửa thẳng trong Sheet trước khi app kịp đồng bộ, nên app giữ bản trong Sheet. Thẻ trong app giờ là bản trong Sheet; muốn sửa tiếp thì bấm ✎. |
+| “…” không xoá được vì từ này vừa đổi trong Sheet | Chữ của từ (cột `term`) đã bị sửa thẳng trong Sheet trước khi app kịp đồng bộ, nên app không xoá để tránh xoá nhầm. Thẻ đã hiện lại; vẫn muốn xoá thì bấm ✎ rồi **Xoá** lần nữa. |
 | Script chung đang trục trặc… | Báo người quản lý app. Trong lúc chờ vẫn học offline bình thường. |
 | Không gọi được script | Kiểm tra mạng, hoặc dán lại link trong ⚙. |
 
