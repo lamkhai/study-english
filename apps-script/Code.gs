@@ -4,32 +4,40 @@
  * Có hai cách dùng (xem README):
  * - Script chung: người quản lý app deploy bằng Gmail bot, người dùng chia sẻ Sheet cho bot.
  * - Tự dựng: trong Sheet mở Extensions → Apps Script, xoá code mẫu, dán toàn bộ file này rồi Deploy thành Web app.
- * Lần đồng bộ đầu tiên, script tự tạo tab english (từ vựng) và tab config (mã bí mật). Hai tab này mang thẻ ẩn
- * (developer metadata), nên script nhận ra chúng kể cả khi bị đổi tên, và không bao giờ đọc hay sửa tab khác của bạn.
+ * Lần đồng bộ đầu tiên, script tự tạo tab english (từ vựng), tab types (loại từ) và tab config (mã bí mật). Ba tab
+ * này mang thẻ ẩn (developer metadata), nên script nhận ra chúng kể cả khi bị đổi tên, và không bao giờ đọc hay sửa
+ * tab khác của bạn.
  * Code không chứa mã bí mật nào, dán bản mới đè lên bản cũ là xong.
  */
 
 // ===== Cấu hình =====
 const WORDS_TAB = 'english';  // tên tab từ vựng khi tạo; trùng tên tab có dữ liệu thì thành english2, english3…
+const TYPES_TAB = 'types';    // tên tab loại từ khi tạo; trùng thì thành types2…
 const CONFIG_TAB = 'config';  // tên tab chứa mã khi tạo (A1 ghi "secret", B1 ghi mã); trùng thì thành config2…
 const MIN_SECRET = 8;         // mã ngắn hơn thì không nhận, cho khó đoán
 // ====================
 
-// Thẻ ẩn đánh dấu tab của app, giá trị là 'words' hoặc 'config'
+// Thẻ ẩn đánh dấu tab của app, giá trị là 'words', 'types' hoặc 'config'
 const TAG = 'tu-vung';
-// Bốn cột bạn nhập; từ thêm trong app cũng được ghi vào đây
-const INPUT_COLUMNS = ['term', 'meaning', 'example', 'type'];
-// Ba cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
-const EDIT_COLUMNS = ['meaning', 'example', 'type'];
+// Năm cột bạn nhập; từ thêm trong app cũng được ghi vào đây
+const INPUT_COLUMNS = ['term', 'phonetic', 'meaning', 'example', 'type'];
+// Bốn cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
+const EDIT_COLUMNS = ['phonetic', 'meaning', 'example', 'type'];
 // Ba cột do app tự quản lý, bạn không cần nhập
 const AUTO_COLUMNS = ['last_seen', 'mastered', 'id'];
+// Hai cột của tab loại từ: tên loại, và chữ viết tắt đặt trước nghĩa
+const TYPE_COLUMNS = ['type', 'abbr'];
+const PHONETIC_NOTE = 'Phiên âm, app hiện đúng như bạn gõ, ví dụ /rʌn/. Bỏ trống cũng được.';
 
 /** Mở link /exec trên trình duyệt để kiểm tra script đã chạy. */
 function doGet() {
   return json_({ ok: true, message: 'Script đang chạy. Tự dựng thì dán link này vào ⚙ trong app.' });
 }
 
-/** App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới, bản sửa và từ đã xoá, ghi vào Sheet, trả về toàn bộ thẻ. */
+/**
+ * App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới, bản sửa và từ đã xoá, ghi vào Sheet, trả về toàn bộ thẻ
+ * cùng danh sách loại từ.
+ */
 function doPost(e) {
   let body;
   try {
@@ -81,9 +89,10 @@ function doPost(e) {
       }
       if (!now) created = key || newCode_();
     }
-    // Tab từ vựng làm trước tab config, để tab trống duy nhất của Sheet mới thành tab english.
-    // Lỡ xoá tab từ vựng thì đến đây cũng được tạo lại.
+    // Tab từ vựng làm trước, để tab trống duy nhất của Sheet mới thành tab english; tab loại từ nằm ngay sau nó.
+    // Lỡ xoá tab từ vựng hay tab loại từ thì đến đây cũng được tạo lại.
     words = tagged_(ss, 'words') || makeWords_(ss);
+    const types = tagged_(ss, 'types') || makeTypes_(ss, words);
     if (created) writeCode_(config || makeConfig_(ss), created);
 
     const changes = Array.isArray(body.changes) ? body.changes : [];
@@ -91,7 +100,9 @@ function doPost(e) {
     const edits = Array.isArray(body.edits) ? body.edits : [];
     const deletes = Array.isArray(body.deletes) ? body.deletes : [];
     const out = sync_(words, changes, adds, edits, deletes);
-    const res = { ok: true, items: out.items, conflicts: out.conflicts, deleted: out.deleted };
+    // Có trường types là app biết script này đã nhận phiên âm và loại từ
+    const res = { ok: true, items: out.items, types: syncTypes_(types, out.items), conflicts: out.conflicts,
+      deleted: out.deleted };
     if (created) res.key = created;
     SpreadsheetApp.flush(); // ghi hết vào Sheet trước khi nhả khoá
     return json_(res);
@@ -111,6 +122,13 @@ function sync_(sheet, changes, adds, edits, deletes) {
     .map(h => text_(h).toLowerCase());
   if (header.indexOf('term') === -1) {
     throw new Error('không thấy cột "term" ở hàng 1 của tab ' + sheet.getName());
+  }
+  // Cột phonetic (phiên âm) mới có từ bản này: tab chưa có thì chèn ngay sau cột term, để bạn thấy mà nhập
+  if (header.indexOf('phonetic') === -1) {
+    const at = header.indexOf('term') + 1;   // số thứ tự (đếm từ 1) của cột term
+    sheet.insertColumnsAfter(at, 1);
+    sheet.getRange(1, at + 1).setValue('phonetic').setNote(PHONETIC_NOTE);
+    header.splice(at, 0, 'phonetic');
   }
   // Thiếu cột tự quản lý thì thêm vào cuối. Có từ mới hay bản sửa thì thêm cả cột nhập còn thiếu, để không mất chữ nào
   AUTO_COLUMNS.concat(adds.length || edits.length ? INPUT_COLUMNS : []).forEach(name => {
@@ -206,7 +224,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
     if (typeof ch.mastered === 'boolean') r[col.mastered] = ch.mastered;
   });
 
-  // 7. Dòng của từ mới thì ghi cả 4 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 3 cột
+  // 7. Dòng của từ mới thì ghi cả 5 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 3 cột
   //    tự quản lý, không đụng tới các cột bạn nhập. Id và chữ ghi dạng chữ, để "0012ab34" hay "24/7" không bị
   //    đổi thành số hay ngày tháng. Cuối cùng mới xoá dòng của từ đã xoá.
   if (all.length) {
@@ -242,6 +260,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
   const items = all.filter(r => hasTerm(r) && !removed.has(r)).map(r => ({
     id: r[col.id],
     term: text_(r[col.term]),
+    phonetic: text_(r[col.phonetic]),
     meaning: col.meaning === -1 ? '' : text_(r[col.meaning]),
     example: col.example === -1 ? '' : text_(r[col.example]),
     type: col.type === -1 ? '' : text_(r[col.type]),
@@ -251,7 +270,56 @@ function sync_(sheet, changes, adds, edits, deletes) {
   return { items, conflicts, deleted };
 }
 
-/** Tab mang thẻ ẩn của app (role là 'words' hoặc 'config'); người dùng đổi tên tab thì vẫn nhận ra. */
+/**
+ * Tab loại từ: loại đang dùng ở các thẻ mà tab chưa có thì ghi thêm vào cuối, rồi trả về các loại trong tab để app gợi ý.
+ * Script chỉ thêm dòng, không sửa hay xoá dòng bạn đã có.
+ */
+function syncTypes_(sheet, items) {
+  if (sheet.getLastColumn() === 0) {
+    sheet.getRange(1, 1, 1, TYPE_COLUMNS.length).setValues([TYPE_COLUMNS]);
+  }
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(h => text_(h).toLowerCase());
+  TYPE_COLUMNS.forEach(name => {
+    if (header.indexOf(name) !== -1) return;
+    header.push(name);
+    if (header.length > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
+    sheet.getRange(1, header.length).setValue(name);
+  });
+  const ct = header.indexOf('type');
+  const ca = header.indexOf('abbr');
+  const n = sheet.getLastRow() - 1;
+  const rows = n > 0 ? sheet.getRange(2, 1, n, header.length).getValues() : [];
+
+  // Loại đã có trong tab, theo thứ tự dòng. Hoa thường khác nhau vẫn là một loại; ô ghi mấy loại thì tính từng loại.
+  const list = [];
+  const seen = {};
+  const add = (type, abbr) => {
+    const k = normTerm_(type);
+    if (seen[k]) return false;
+    seen[k] = true;
+    list.push({ type, abbr });
+    return true;
+  };
+  rows.forEach(r => {
+    const names = typesOf_(r[ct]);
+    names.forEach(type => add(type, names.length === 1 ? text_(r[ca]) : ''));
+  });
+  // Loại đang dùng mà tab chưa có, theo thứ tự gặp trong tab từ vựng. Ghi dạng chữ, để "1/2" không thành ngày tháng.
+  const fresh = [];
+  items.forEach(it => typesOf_(it.type).forEach(type => {
+    if (add(type, '')) fresh.push([type]);
+  }));
+  if (fresh.length) {
+    const start = sheet.getLastRow() + 1;
+    const short = start + fresh.length - 1 - sheet.getMaxRows();
+    if (short > 0) sheet.insertRowsAfter(sheet.getMaxRows(), short);
+    sheet.getRange(start, ct + 1, fresh.length, 1).setNumberFormat('@').setValues(fresh);
+  }
+  return list;
+}
+
+/** Tab mang thẻ ẩn của app (role là 'words', 'types' hoặc 'config'); người dùng đổi tên tab thì vẫn nhận ra. */
 function tagged_(ss, role) {
   return ss.getSheets().find(s => roleOf_(s) === role) || null;
 }
@@ -280,9 +348,22 @@ function makeWords_(ss) {
   const head = INPUT_COLUMNS.concat(AUTO_COLUMNS);
   sheet.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
   sheet.setFrozenRows(1);
-  sheet.getRange(1, 2).setNote('Từ có nhiều loại: mỗi nghĩa một dòng, mở đầu bằng loại viết tắt như (n), (v). Xuống dòng trong ô bằng Ctrl+Enter.');
-  sheet.getRange(1, 3).setNote('Bọc *cụm từ* để in đậm. Nhiều ví dụ thì xuống dòng trong ô bằng Ctrl+Enter.');
-  sheet.getRange(1, 4).setNote('Loại từ như noun, verb, adjective, hoặc grammar cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: noun, verb. Bỏ trống cũng được.');
+  const note = (name, text) => sheet.getRange(1, head.indexOf(name) + 1).setNote(text);
+  note('phonetic', PHONETIC_NOTE);
+  note('meaning', 'Từ có nhiều loại: mỗi nghĩa một dòng, mở đầu bằng loại viết tắt như (n), (v). Xuống dòng trong ô bằng Ctrl+Enter.');
+  note('example', 'Bọc *cụm từ* để in đậm. Nhiều ví dụ thì xuống dòng trong ô bằng Ctrl+Enter.');
+  note('type', 'Loại từ như noun, verb, adjective, hoặc grammar cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: noun, verb. Loại mới được thêm vào tab types để app gợi ý. Bỏ trống cũng được.');
+  return sheet;
+}
+
+/** Tạo tab loại từ ngay sau tab từ vựng. */
+function makeTypes_(ss, words) {
+  const sheet = newTab_(ss, TYPES_TAB, words.getIndex());
+  tag_(sheet, 'types');
+  sheet.getRange(1, 1, 1, TYPE_COLUMNS.length).setValues([TYPE_COLUMNS]).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1).setNote('Các loại app gợi ý khi thêm từ. Loại nào dùng ở tab từ vựng mà chưa có ở đây thì script tự thêm vào cuối. Loại không dùng nữa thì xoá dòng đó.');
+  sheet.getRange(1, 2).setNote('Viết tắt đặt trước nghĩa khi một từ có nhiều loại, ví dụ (n) cuộc chạy. Bỏ trống thì noun là n, verb là v, adjective là adj, adverb là adv…, loại khác dùng nguyên tên.');
   return sheet;
 }
 
@@ -338,9 +419,14 @@ function text_(v) {
   return v === null || v === undefined ? '' : String(v).trim();
 }
 
-/** So term như app: không phân biệt hoa thường và khoảng trắng thừa. */
+/** So term, và so loại từ, như app: không phân biệt hoa thường và khoảng trắng thừa. */
 function normTerm_(v) {
   return text_(v).normalize('NFC').replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** "noun,  phrasal   verb" → ['noun', 'phrasal verb'] */
+function typesOf_(v) {
+  return text_(v).split(',').map(t => t.trim().replace(/\s+/g, ' ')).filter(Boolean);
 }
 
 function toDate_(v) {

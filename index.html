@@ -154,6 +154,8 @@
     letter-spacing: -.01em;
     overflow-wrap: anywhere;
   }
+  /* Phiên âm ngay dưới từ, hiện đúng như người dùng gõ */
+  .phon { margin: 6px 0 0; font-size: 17px; line-height: 1.35; color: var(--pencil); overflow-wrap: anywhere; }
   /* Dòng kẻ cách nhau 28px, chữ nằm đúng trên dòng */
   .body {
     flex: 1;
@@ -281,7 +283,7 @@
   }
   dialog::backdrop { background: rgba(8, 12, 22, .55); }
   dialog h2 { margin: 0 0 4px; font-size: 20px; }
-  dialog label, dialog .lbl { display: block; margin: 16px 0 6px; font-size: 14px; color: var(--pencil); }
+  dialog label { display: block; margin: 16px 0 6px; font-size: 14px; color: var(--pencil); }
   dialog input, dialog textarea {
     width: 100%;
     padding: 11px 12px;
@@ -294,13 +296,62 @@
   }
   dialog textarea { display: block; resize: vertical; }
   dialog input:focus-visible, dialog textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
-  /* Loại từ: mỗi loại một nút bật/tắt, chọn được nhiều loại */
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  dialog .chip { position: relative; display: block; margin: 0; font-size: 15px; color: var(--ink); cursor: pointer; }
-  .chip input { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; opacity: 0; }
-  .chip span { display: block; padding: 6px 13px; border: 1px solid var(--rule); border-radius: 999px; line-height: 1.4; }
-  .chip input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--paper); }
-  .chip input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+  /* Loại từ: loại đã chọn nằm trong ô, chạm × để bỏ. Gõ vào ô để lọc gợi ý bên dưới, hoặc tạo loại mới */
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 5px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    cursor: text;
+  }
+  .tags:focus-within { outline: 2px solid var(--ink); outline-offset: 0; }
+  dialog .tags input { flex: 1; width: auto; min-width: 6em; padding: 6px 7px; border: 0; }
+  dialog .tags input:focus-visible { outline: none; }
+  .tag {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    padding-left: 12px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .tag span { min-width: 0; overflow-wrap: anywhere; }
+  .tag button {
+    flex: none;
+    width: 32px;
+    height: 30px;
+    padding: 0 2px 0 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    font-size: 19px;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chips:empty { display: none; }
+  .chips button {
+    max-width: 100%;
+    padding: 6px 13px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: transparent;
+    font-size: 15px;
+    line-height: 1.4;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .chips .new { border-style: dashed; border-color: var(--pencil); }
   .info { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--pencil); }
   .info.tip { margin-top: 6px; }
   .info.warn { margin-top: 8px; color: var(--ink); font-weight: 600; }
@@ -386,8 +437,13 @@
   <label for="inTerm">Từ</label>
   <input id="inTerm" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="next" placeholder="make up for" autofocus>
   <p class="info warn" id="addMsg" role="status" hidden></p>
-  <p class="lbl" id="lblTypes">Loại từ</p>
-  <div class="chips" id="types" role="group" aria-labelledby="lblTypes"></div>
+  <label for="inPhonetic">Phiên âm</label>
+  <input id="inPhonetic" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="/meɪk ʌp fɔːr/">
+  <label for="inType">Loại từ</label>
+  <div class="tags" id="tags">
+    <input id="inType" type="text" maxlength="30" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+  </div>
+  <div class="chips" id="sugg" role="group" aria-label="Gợi ý loại từ"></div>
   <label for="inMeaning">Nghĩa</label>
   <textarea id="inMeaning" rows="2" autocapitalize="none" placeholder="bù đắp cho"></textarea>
   <label for="inExample">Ví dụ</label>
@@ -413,18 +469,18 @@
 'use strict';
 
 const KEYS = {
-  items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', deletes: 'tv.deletes', settings: 'tv.settings', lastSync: 'tv.lastSync'
+  items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', deletes: 'tv.deletes', types: 'tv.types',
+  settings: 'tv.settings', lastSync: 'tv.lastSync'
 };
 
-// Loại từ trong bảng nhập: [giá trị ghi vào Sheet, viết tắt đặt trước nghĩa, nghĩa tiếng Việt]
-const TYPES = [
-  ['noun', 'n', 'danh từ'], ['verb', 'v', 'động từ'], ['adjective', 'adj', 'tính từ'], ['adverb', 'adv', 'trạng từ'],
-  ['pronoun', 'pron', 'đại từ'], ['preposition', 'prep', 'giới từ'], ['conjunction', 'conj', 'liên từ'],
-  ['interjection', 'interj', 'thán từ'], ['phrasal verb', 'phr v', 'cụm động từ'], ['idiom', 'idiom', 'thành ngữ'],
-  ['phrase', 'phrase', 'cụm từ'], ['grammar', 'grammar', 'ngữ pháp']
-];
-// Dòng nghĩa mở đầu bằng loại viết tắt: (n) cuộc chạy
-const PREFIX = /^\([^)]{1,15}\)/;
+// Loại từ do người dùng tạo, lưu ở tab types của Sheet. Đây chỉ là chữ viết tắt quen thuộc đặt trước nghĩa khi từ
+// có nhiều loại: (n) cuộc chạy. Cột abbr ở tab types ghi đè; loại không có ở đây mà chưa ghi abbr thì dùng nguyên tên.
+const ABBR = {
+  noun: 'n', verb: 'v', adjective: 'adj', adverb: 'adv', pronoun: 'pron', preposition: 'prep',
+  conjunction: 'conj', interjection: 'interj', 'phrasal verb': 'phr v'
+};
+// Dòng nghĩa mở đầu bằng loại viết tắt: (n) cuộc chạy. Tên loại dài tối đa 30 ký tự (ô Loại từ cũng giới hạn vậy)
+const PREFIX = /^\([^)]{1,30}\)/;
 
 // Script chung do người quản lý app deploy bằng Gmail bot (xem README).
 // Để trống thì người dùng phải tự dựng script và dán link /exec của họ vào ⚙.
@@ -434,14 +490,14 @@ const BOT_EMAIL = '';
 
 // Thẻ mẫu: chỉ hiện khi chưa đồng bộ lần nào, không được lưu vào máy
 const DEMO = [
-  { id: 'demo-1', type: 'phrase', term: 'in conjunction with', meaning: 'kết hợp với',
+  { id: 'demo-1', type: 'phrase', term: 'in conjunction with', phonetic: '/ɪn kənˈdʒʌŋkʃən wɪð/', meaning: 'kết hợp với',
     example: 'hooks, states, props, Redux *in conjunction with* React components',
     lastSeen: '', mastered: false },
-  { id: 'demo-2', type: 'grammar', term: 'have/has been + V-ing',
+  { id: 'demo-2', type: 'grammar', term: 'have/has been + V-ing', phonetic: '',
     meaning: 'thì hiện tại hoàn thành tiếp diễn: việc bắt đầu trong quá khứ và vẫn đang tiếp diễn',
     example: 'I *have been learning* English for two years.\nShe *has been waiting* since 9 a.m.',
     lastSeen: '2026-10-14T13:00:00.000Z', mastered: false },
-  { id: 'demo-3', type: 'phrasal verb', term: 'make up for', meaning: 'bù đắp cho',
+  { id: 'demo-3', type: 'phrasal verb', term: 'make up for', phonetic: '/meɪk ʌp fɔːr/', meaning: 'bù đắp cho',
     example: 'He stayed late to *make up for* the lost time.\nNothing can *make up for* that mistake.',
     lastSeen: '', mastered: false }
 ];
@@ -450,13 +506,16 @@ let items = [];                        // toàn bộ thẻ; từ thêm trong app
 let pending = {};                      // thay đổi chưa đồng bộ: { id: { lastSeen, mastered } }
 let edits = {};                        // bản sửa chưa đồng bộ: { id: { meaning: { from, to }, … } }
 let deletes = {};                      // từ đã xoá trong app, chờ xoá trong Sheet: { id: { term } }
+let types = [];                        // loại từ ở tab types của Sheet, nhận về lúc đồng bộ: [{ type, abbr }]
 let settings = { sheet: '', key: '', url: '' }; // url: link script riêng, bỏ trống thì dùng SHARED_URL
 let lastSync = '';
 let current = null;                    // thẻ đang hiện
 let demo = false, busy = false, syncing = false, drag = null, toastTimer = 0;
 let editing = null, before = null, filled = null, lookupTimer = 0;  // bảng đang sửa thẻ nào, và các ô trước/sau khi nạp
+let picked = [];                       // loại từ đang chọn trong bảng Thêm/Sửa từ
 let $card, $stats, $badge, $sync, $master, $next, $hint, $toast, $toastMsg, $toastAct, $dlg, $sheet, $key, $url, $help, $info;
-let $add, $addTitle, $addMsg, $types, $term, $meaning, $example, $addSave, $addDel, $del, $delTitle, $delText;
+let $add, $addTitle, $addMsg, $term, $phonetic, $tags, $typeIn, $sugg, $meaning, $example, $addSave, $addDel;
+let $del, $delTitle, $delText;
 
 /* ---------- Hàm tiện ích ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -480,10 +539,17 @@ function esc(s) {
 // *cụm từ*  →  cụm từ in đậm, tô dạ quang
 function rich(s) { return esc(s).replace(/\*(.+?)\*/g, '<b>$1</b>'); }
 function lines(s) { return String(s == null ? '' : s).split(/\r?\n/).map(l => l.trim()).filter(Boolean); }
-// "noun, verb" → ['noun', 'verb']
-function typesOf(type) { return String(type == null ? '' : type).split(',').map(t => t.trim()).filter(Boolean); }
-// So từ: không phân biệt hoa thường và khoảng trắng thừa
+// Tên loại từ gọn: bỏ khoảng trắng thừa
+function typeName(s) { return String(s == null ? '' : s).trim().replace(/\s+/g, ' '); }
+// "noun,  phrasal   verb" → ['noun', 'phrasal verb']
+function typesOf(type) { return String(type == null ? '' : type).split(',').map(typeName).filter(Boolean); }
+// So từ, và so loại từ: không phân biệt hoa thường và khoảng trắng thừa
 function normTerm(s) { return String(s == null ? '' : s).normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase(); }
+// Thẻ lưu trong máy từ bản app trước, hay do script cũ trả về, chưa có phiên âm
+function fill(it) {
+  if (typeof it.phonetic !== 'string') it.phonetic = '';
+  return it;
+}
 // ID của Sheet: lấy từ link …/spreadsheets/d/<ID>/edit (kể cả dạng /u/1/d/), hoặc nhận thẳng ID
 function sheetIdOf(s) {
   const m = /\/spreadsheets\/(?:u\/\d+\/)?d\/([\w-]{20,})/.exec(s) || /^([\w-]{20,})$/.exec(s);
@@ -604,9 +670,10 @@ function renderCard() {
     ? `${fmtDate(it.lastSeen)} (${agoText(daysAgo(it.lastSeen))})`
     : 'chưa xem';
   const edit = demo ? '' : '<button class="edit" type="button" aria-label="Sửa thẻ này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>';
+  const phon = it.phonetic ? `<p class="phon">${esc(it.phonetic)}</p>` : '';
   $card.className = kinds.some(k => k.cls === 'grammar') ? 'card grammar' : 'card';
   $card.innerHTML = `
-    <div class="head"><h1 class="term">${esc(it.term)}</h1></div>
+    <div class="head"><h1 class="term">${esc(it.term)}</h1>${phon}</div>
     <div class="body">${meaning ? `<p class="meaning">${meaning}</p>` : ''}${examples}</div>
     <div class="foot"><span>${esc(kinds.map(k => k.label).join(', '))}</span><span class="seen">last seen: ${seen}</span>${edit}</div>`;
 }
@@ -710,35 +777,108 @@ function findWord(term) {
   const k = normTerm(term);
   return demo || !k ? null : items.find(x => normTerm(x.term) === k) || null;
 }
-function chip(value, title) {
-  const el = document.createElement('label');
-  el.className = 'chip';
-  if (title) el.title = title;
-  el.innerHTML = `<input type="checkbox" value="${esc(value)}"><span>${esc(value)}</span>`;
-  return el;
+/* Loại từ do người dùng tự tạo. Gợi ý gồm các loại ở tab types của Sheet và các loại đang dùng ở các thẻ,
+   loại dùng nhiều đứng trước. Loại mới chỉ được lưu khi từ mang nó được lưu. */
+function knownTypes() {
+  const seen = new Map();                // normTerm(loại) → { type, uses, order }
+  const add = (t, uses) => {
+    const k = normTerm(t);
+    if (!seen.has(k)) seen.set(k, { type: typeName(t), uses: 0, order: seen.size });
+    seen.get(k).uses += uses;
+  };
+  types.forEach(x => add(x.type, 0));
+  if (!demo) items.forEach(it => typesOf(it.type).forEach(t => add(t, 1)));
+  return Array.from(seen.values()).sort((a, b) => b.uses - a.uses || a.order - b.order).map(x => x.type);
 }
-function chipInputs() { return Array.from($types.querySelectorAll('input')); }
-function checkedTypes() { return chipInputs().filter(x => x.checked).map(x => x.value); }
-// Tick đúng các loại trong list. Loại không có sẵn (vd. vocab ở dòng cũ) thì thêm nút riêng, để lưu lại không mất
+function checkedTypes() { return picked.slice(); }
+// Chọn đúng các loại trong list, không đụng tới ô Nghĩa
 function setTypes(list) {
-  $types.querySelectorAll('.extra').forEach(el => el.remove());
-  const want = new Set(list.map(t => t.toLowerCase()));
-  chipInputs().forEach(x => { x.checked = want.delete(x.value.toLowerCase()); });
-  list.forEach(t => {
-    if (!want.delete(t.toLowerCase())) return;
-    const el = chip(t);
-    el.classList.add('extra');
-    el.querySelector('input').checked = true;
-    $types.append(el);
-  });
+  picked = [];
+  list.forEach(t => { if (!picked.some(x => normTerm(x) === normTerm(t))) picked.push(typeName(t)); });
+  renderTypes();
 }
 function sameTypes(a, b) {
-  const x = new Set(a.map(t => t.toLowerCase())), y = new Set(b.map(t => t.toLowerCase()));
+  const x = new Set(a.map(normTerm)), y = new Set(b.map(normTerm));
   return x.size === y.size && Array.from(y).every(t => x.has(t));
 }
+// Viết tắt đặt trước nghĩa: cột abbr ở tab types; bỏ trống thì viết tắt quen thuộc, không có nữa thì nguyên tên
 function abbr(type) {
-  const t = TYPES.find(x => x[0] === type.toLowerCase());
-  return t ? t[1] : type;
+  const k = normTerm(type);
+  const t = types.find(x => normTerm(x.type) === k);
+  return (t && t.abbr) || ABBR[k] || typeName(type);
+}
+// Vẽ lại các loại đã chọn trong ô, và hàng gợi ý bên dưới
+function renderTypes() {
+  $tags.querySelectorAll('.tag').forEach(el => el.remove());
+  picked.forEach(t => {
+    const el = document.createElement('span');
+    el.className = 'tag';
+    el.dataset.type = t;
+    el.innerHTML = `<span>${esc(t)}</span><button type="button" aria-label="Bỏ loại ${esc(t)}">×</button>`;
+    $tags.insertBefore(el, $typeIn);
+  });
+  $typeIn.placeholder = picked.length ? '' : 'Gõ để tìm hoặc thêm loại';
+  renderSugg();
+}
+// Chưa gõ gì: gợi ý mọi loại chưa chọn. Đang gõ: chỉ các loại có chữ vừa gõ (khớp từ đầu thì đứng trước),
+// cộng nút tạo loại mới nếu chưa loại nào trùng tên
+function renderSugg() {
+  const q = typeName($typeIn.value), k = normTerm(q);
+  const chosen = new Set(picked.map(normTerm));
+  const known = knownTypes();
+  let list = known.filter(t => !chosen.has(normTerm(t)));
+  if (k) {
+    list = list.filter(t => normTerm(t).includes(k))
+      .sort((a, b) => normTerm(b).startsWith(k) - normTerm(a).startsWith(k));
+  }
+  const button = (t, label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.type = t;
+    b.textContent = label || t;
+    return b;
+  };
+  const chips = list.map(t => button(t));
+  if (k && !chosen.has(k) && !known.some(t => normTerm(t) === k)) {
+    const b = button(q, `+ Thêm “${q}”`);
+    b.className = 'new';
+    chips.push(b);
+  }
+  $sugg.replaceChildren(...chips);
+}
+// Chọn một loại: loại đã có thì giữ đúng cách viết đã có, chưa có thì thành loại mới.
+// Chọn loại thứ hai trở đi: mỗi loại một dòng nghĩa mở đầu bằng (n), (v)…, các dòng chưa ghi loại là của loại chọn trước.
+function pickType(name) {
+  const t = typeName(name);
+  $typeIn.value = '';
+  if (t && !picked.some(x => normTerm(x) === normTerm(t))) {
+    picked.push(knownTypes().find(x => normTerm(x) === normTerm(t)) || t);
+    if (picked.length >= 2) {
+      let ls = lines($meaning.value);
+      if (ls.length && !ls.some(l => PREFIX.test(l))) {
+        const first = abbr(picked[0]);
+        ls = ls.map(l => `(${first}) ${l}`);
+      }
+      picked.forEach(x => {
+        const tag = `(${abbr(x)})`;
+        if (!ls.some(l => l.startsWith(tag))) ls.push(tag);
+      });
+      // dòng mới chỉ có (v) thì chừa sẵn dấu cách để gõ nghĩa tiếp
+      $meaning.value = ls.map(l => l.replace(PREFIX, '').trim() ? l : l + ' ').join('\n');
+    }
+  }
+  renderTypes();
+  checkAdd();
+}
+// Bỏ một loại: chỉ xoá dòng nghĩa của loại đó nếu dòng còn trống
+function unpickType(name) {
+  const t = picked.find(x => normTerm(x) === normTerm(name));
+  if (!t) return;
+  picked = picked.filter(x => x !== t);
+  const tag = `(${abbr(t)})`;
+  $meaning.value = $meaning.value.split('\n').filter(l => l.trim() !== tag).join('\n');
+  renderTypes();
+  checkAdd();
 }
 // Nghĩa để lưu: bỏ dòng trống và dòng chỉ có (v) mà chưa ghi nghĩa
 function cleanMeaning(v) { return lines(v).filter(l => l.replace(PREFIX, '').trim()).join('\n'); }
@@ -748,48 +888,33 @@ function mergeLines(a, b) {
   lines(b).forEach(l => { if (!ls.includes(l)) ls.push(l); });
   return ls.join('\n');
 }
-function formState() { return { types: checkedTypes(), meaning: $meaning.value, example: $example.value }; }
+function formState() {
+  return { phonetic: $phonetic.value, types: checkedTypes(), meaning: $meaning.value, example: $example.value };
+}
 // Những ô trong bảng khác với thẻ
 function formDiff(it) {
   const diff = {};
+  const phonetic = $phonetic.value.trim();
   const meaning = cleanMeaning($meaning.value), example = lines($example.value).join('\n');
+  if (phonetic !== (it.phonetic || '')) diff.phonetic = phonetic;
   if (meaning !== lines(it.meaning).join('\n')) diff.meaning = meaning;
   if (example !== lines(it.example).join('\n')) diff.example = example;
   if (!sameTypes(checkedTypes(), typesOf(it.type))) diff.type = checkedTypes().join(', ');
   return diff;
 }
+// Cần có từ. Đang sửa thì cần có ô khác thẻ, hoặc chữ gõ dở trong ô Loại từ mà thẻ chưa có (bấm lưu là thành loại mới)
 function checkAdd() {
-  $addSave.disabled = !$term.value.trim() || (!!editing && !Object.keys(formDiff(editing)).length);
+  const typed = normTerm($typeIn.value);
+  const newType = !!typed && !picked.some(x => normTerm(x) === typed);
+  $addSave.disabled = !$term.value.trim() || (!!editing && !Object.keys(formDiff(editing)).length && !newType);
 }
 
-// Tick loại thứ hai trở đi: mỗi loại một dòng nghĩa mở đầu bằng (n), (v)…, các dòng chưa ghi loại là của loại tick trước.
-// Bỏ tick thì chỉ xoá dòng của loại đó nếu dòng còn trống.
-function onTypeChange(e) {
-  const t = e.target.value;
-  if (!e.target.checked) {
-    const tag = `(${abbr(t)})`;
-    $meaning.value = $meaning.value.split('\n').filter(l => l.trim() !== tag).join('\n');
-  } else if (checkedTypes().length >= 2) {
-    const ticked = checkedTypes();
-    let ls = lines($meaning.value);
-    if (ls.length && !ls.some(l => PREFIX.test(l))) {
-      const first = abbr(ticked.find(x => x !== t));
-      ls = ls.map(l => `(${first}) ${l}`);
-    }
-    ticked.forEach(x => {
-      const tag = `(${abbr(x)})`;
-      if (!ls.some(l => l.startsWith(tag))) ls.push(tag);
-    });
-    // dòng mới chỉ có (v) thì chừa sẵn dấu cách để gõ nghĩa tiếp
-    $meaning.value = ls.map(l => l.replace(PREFIX, '').trim() ? l : l + ' ').join('\n');
-  }
-  checkAdd();
-}
-
-// Gõ ra một từ đã có: chuyển sang sửa thẻ đó. Loại đã tick và chữ đã gõ ở Nghĩa, Ví dụ được ghép vào thẻ
+// Gõ ra một từ đã có: chuyển sang sửa thẻ đó. Loại đã chọn và chữ đã gõ ở Nghĩa, Ví dụ được ghép vào thẻ;
+// phiên âm đã gõ thì thay cho phiên âm của thẻ
 function startEdit(it) {
   before = formState();
   setTypes(typesOf(it.type).concat(before.types));
+  $phonetic.value = before.phonetic.trim() || it.phonetic || '';
   $meaning.value = mergeLines(it.meaning, before.meaning);
   $example.value = mergeLines(it.example, before.example);
   editing = it;
@@ -804,6 +929,7 @@ function startEdit(it) {
 function stopEdit(restore) {
   if (restore) {
     const now = formState();
+    if (now.phonetic === filled.phonetic) $phonetic.value = before.phonetic;
     if (now.meaning === filled.meaning) $meaning.value = before.meaning;
     if (now.example === filled.example) $example.value = before.example;
     if (sameTypes(now.types, filled.types)) setTypes(before.types);
@@ -817,7 +943,7 @@ function stopEdit(restore) {
 function resetForm() {
   clearTimeout(lookupTimer);
   if (editing) stopEdit(false);
-  $term.value = $meaning.value = $example.value = '';
+  $term.value = $phonetic.value = $typeIn.value = $meaning.value = $example.value = '';
   setTypes([]);
 }
 // Tra xem từ trong ô Từ đã có trong bộ thẻ chưa
@@ -838,10 +964,12 @@ function openAdd(it) {
   } else {
     lookup();                            // bản nháp còn lại có thể trùng từ vừa đồng bộ về
   }
+  renderSugg();                          // loại từ có thể vừa đổi sau lần đồng bộ
   checkAdd();
   if (!$add.open) $add.showModal();
 }
 function saveWord() {
+  if (typeName($typeIn.value)) pickType($typeIn.value);  // loại gõ dở mà chưa bấm Enter cũng được tính
   if (!editing) {
     lookup();
     if (editing) return;                 // vừa nhận ra từ đã có: để bạn xem nội dung cũ rồi mới bấm Cập nhật
@@ -852,7 +980,7 @@ function saveWord() {
 function addWord() {
   const term = $term.value.trim();
   const it = {
-    id: newId(), type: checkedTypes().join(', '), term,
+    id: newId(), type: checkedTypes().join(', '), term, phonetic: $phonetic.value.trim(),
     meaning: cleanMeaning($meaning.value), example: lines($example.value).join('\n'),
     lastSeen: '', mastered: false, local: true
   };
@@ -950,19 +1078,41 @@ async function sync() {
 
     const wasDemo = demo;
     demo = false;
-    const got = Array.isArray(data.items) ? data.items : [];
+    // Script mới trả về danh sách loại từ (types). Script cũ chưa biết phiên âm: nhận từ mới và bản sửa nhưng bỏ qua phiên âm
+    const modern = Array.isArray(data.types);
+    if (modern) {
+      types = data.types.filter(x => x && typeName(x.type))
+        .map(x => ({ type: typeName(x.type), abbr: String(x.abbr == null ? '' : x.abbr).trim() }));
+      store(KEYS.types, types);
+    }
+    const got = (Array.isArray(data.items) ? data.items : []).map(fill);
     const ids = new Set(got.map(x => x.id));
     // Bản sửa: Sheet đã có nội dung mới thì xong; nằm trong conflicts thì Sheet giữ bản của nó;
-    // script cũ chưa biết sửa (không trả conflicts) thì giữ lại gửi lần sau
+    // script cũ chưa biết sửa (không trả conflicts), hay chưa biết phiên âm, thì giữ lại gửi lần sau
     const conflicts = Array.isArray(data.conflicts) ? data.conflicts : null;
     const lost = [];
     let kept = false;
     Object.keys(fixing).forEach(id => {
       const it = got.find(x => x.id === id);
-      if (it && Object.keys(fixing[id]).every(name => it[name] === fixing[id][name].to)) return;
+      const done = name => it[name] === fixing[id][name].to && (modern || name !== 'phonetic');
+      if (it && Object.keys(fixing[id]).every(done)) return;
       if (!conflicts) { keepEdits({ [id]: fixing[id] }); kept = true; }
       else if (conflicts.includes(id)) lost.push(it ? it.term : '');
+      else if (!modern && fixing[id].phonetic) { keepEdits({ [id]: { phonetic: fixing[id].phonetic } }); kept = true; }
     });
+    if (!modern) {
+      // Script cũ ghi từ mới nhưng bỏ phiên âm: giữ phiên âm lại thành một bản sửa, gửi lần sau
+      adding.forEach(a => {
+        const it = got.find(x => x.id === a.id);
+        if (!it || !a.phonetic || deletes[a.id]) return;
+        const ed = edits[a.id] || (edits[a.id] = {});
+        ed.phonetic = { from: it.phonetic, to: ed.phonetic ? ed.phonetic.to : a.phonetic };
+        kept = true;
+      });
+      // Script cũ không trả phiên âm về: thẻ giữ phiên âm đang có trong máy
+      const mine = new Map(items.map(x => [x.id, x]));
+      got.forEach(x => { if (mine.has(x.id)) x.phonetic = mine.get(x.id).phonetic || ''; });
+    }
     // Từ đã xoá: script mới trả lại id đã xoá trong deleted. Nằm trong conflicts thì Sheet giữ dòng đó (term vừa bị đổi);
     // script cũ chưa biết xoá (không trả deleted) thì giữ lại gửi lần sau
     const gone = Array.isArray(data.deleted) ? data.deleted : null;
@@ -1045,10 +1195,10 @@ function init() {
   $master = $('btnMaster'); $next = $('btnNext'); $hint = $('hint'); $toast = $('toast'); $toastMsg = $('toastMsg');
   $toastAct = $('toastAct'); $dlg = $('dlg'); $sheet = $('inSheet'); $key = $('inKey'); $url = $('inUrl');
   $help = $('help'); $info = $('info');
-  $add = $('dlgAdd'); $addTitle = $('addTitle'); $addMsg = $('addMsg'); $types = $('types');
-  $term = $('inTerm'); $meaning = $('inMeaning'); $example = $('inExample'); $addSave = $('btnAddSave');
+  $add = $('dlgAdd'); $addTitle = $('addTitle'); $addMsg = $('addMsg');
+  $term = $('inTerm'); $phonetic = $('inPhonetic'); $tags = $('tags'); $typeIn = $('inType'); $sugg = $('sugg');
+  $meaning = $('inMeaning'); $example = $('inExample'); $addSave = $('btnAddSave');
   $addDel = $('btnAddDel'); $del = $('dlgDel'); $delTitle = $('delTitle'); $delText = $('delText');
-  TYPES.forEach(([value, , vi]) => $types.append(chip(value, vi)));
   if (SHARED_URL) {
     $('lblUrl').textContent = 'Link Apps Script riêng (không bắt buộc)';
     $url.placeholder = 'Bỏ trống để dùng script chung';
@@ -1058,10 +1208,12 @@ function init() {
     }
   }
 
-  items = load(KEYS.items, []);
+  items = load(KEYS.items, []).map(fill);
   pending = load(KEYS.pending, {});
   edits = load(KEYS.edits, {});
   deletes = load(KEYS.deletes, {});
+  types = load(KEYS.types, []);
+  if (!Array.isArray(types)) types = [];
   settings = Object.assign({ sheet: '', key: '', url: '' }, load(KEYS.settings, {}));
   lastSync = load(KEYS.lastSync, '');
   if (!items.length && !lastSync) {
@@ -1070,6 +1222,7 @@ function init() {
   }
   next();
   renderTop();
+  renderTypes();
 
   $card.addEventListener('pointerdown', onDown);
   $card.addEventListener('pointermove', onMove);
@@ -1096,13 +1249,50 @@ function init() {
     clearTimeout(lookupTimer);
     lookupTimer = setTimeout(() => { if ($add.open) lookup(); }, 400);
   });
-  [$meaning, $example].forEach(el => el.addEventListener('input', checkAdd));
-  $types.addEventListener('change', onTypeChange);
-  // Enter ở ô Từ: tra từ rồi sang ô Nghĩa; Ctrl+Enter (Mac: ⌘+Enter) ở ô nào cũng là bấm nút chính
+  [$phonetic, $meaning, $example].forEach(el => el.addEventListener('input', checkAdd));
+  // Loại từ: chạm gợi ý để chọn, chạm × để bỏ, chạm vào ô để gõ. Nhấn giữ trên nút không lấy focus khỏi ô đang gõ,
+  // để bàn phím điện thoại không bị đóng rồi mở lại
+  $sugg.addEventListener('mousedown', e => e.preventDefault());
+  $sugg.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const keyboard = document.activeElement === b;      // chọn bằng Tab rồi Enter: trả focus về ô gõ
+    pickType(b.dataset.type);
+    if (keyboard) $typeIn.focus();
+  });
+  $tags.addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
+  $tags.addEventListener('click', e => {
+    const x = e.target.closest('.tag button');
+    if (!x) { $typeIn.focus(); return; }
+    const keyboard = document.activeElement === x;
+    unpickType(x.parentNode.dataset.type);
+    if (keyboard) $typeIn.focus();
+  });
+  $typeIn.addEventListener('input', () => {
+    if ($typeIn.value.includes(',')) {                  // gõ dấu phẩy là xong một loại
+      const parts = $typeIn.value.split(',');
+      const rest = parts.pop();
+      parts.forEach(t => pickType(t));
+      $typeIn.value = rest.replace(/^\s+/, '');
+    }
+    renderSugg();
+    checkAdd();
+  });
+  // Ô Loại từ đang trống mà bấm xoá lùi thì bỏ loại cuối cùng
+  $typeIn.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !$typeIn.value && picked.length && !e.isComposing) unpickType(picked[picked.length - 1]);
+  });
+  // Enter ở ô Từ: tra từ rồi sang ô Phiên âm; ở ô Phiên âm: sang ô Loại từ; ở ô Loại từ: chọn loại vừa gõ, ô trống thì
+  // sang ô Nghĩa. Ctrl+Enter (Mac: ⌘+Enter) ở ô nào cũng là bấm nút chính
   $add.addEventListener('keydown', e => {
     if (e.key !== 'Enter' || e.isComposing) return;
     if (e.ctrlKey || e.metaKey) { e.preventDefault(); saveWord(); }
-    else if (e.target === $term) { e.preventDefault(); lookup(); $meaning.focus(); }
+    else if (e.target === $term) { e.preventDefault(); lookup(); $phonetic.focus(); }
+    else if (e.target === $phonetic) { e.preventDefault(); $typeIn.focus(); }
+    else if (e.target === $typeIn) {
+      e.preventDefault();
+      if (typeName($typeIn.value)) pickType($typeIn.value); else $meaning.focus();
+    }
   });
   document.addEventListener('keydown', e => {
     if ($dlg.open || $add.open) return;
