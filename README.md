@@ -108,7 +108,9 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
   - Chạm × để bỏ một loại.
   - Loại mới được lưu cùng từ khi bấm **Thêm** hay **Cập nhật**, rồi vào tab `types` ở lần đồng bộ kế tiếp.
 - Mỗi từ chỉ có một thẻ. Gõ một từ đã có (không phân biệt hoa thường) thì bảng chuyển sang **Sửa từ**, nạp sẵn phiên âm, loại từ, nghĩa, ví dụ của thẻ đó; sửa xong bấm **Cập nhật**. Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
-- Từ có nhiều loại: chọn đủ các loại, app tự gắn `(n)`, `(v)`… vào ô Nghĩa để bạn ghi mỗi nghĩa một dòng.
+- Chọn loại từ thì app tự gắn loại viết tắt vào ô Nghĩa, kể cả khi chỉ chọn một loại: `(n) cuộc chạy`.
+  - Từ có nhiều loại: chọn đủ các loại, app gắn `(n)`, `(v)`… mỗi loại một dòng để bạn ghi mỗi nghĩa một dòng.
+  - Chỉ còn một loại mà bỏ đi thì app gỡ `(n)` của loại đó khỏi ô Nghĩa, nghĩa đã gõ vẫn giữ.
 - Bản sửa được ghi vào Sheet ở lần đồng bộ kế tiếp. Nếu trong lúc đó ô ấy đã được sửa thẳng trong Sheet, app giữ bản trong Sheet và báo lại.
 - Xoá từ: trong bảng **Sửa từ** bấm **Xoá**, rồi xác nhận. Thẻ mất khỏi bộ thẻ ngay, và dòng của từ đó trong Sheet bị xoá ở lần đồng bộ kế tiếp. Nếu trước đó chữ của từ (cột `term`) đã bị sửa thẳng trong Sheet, app không xoá dòng đó để tránh xoá nhầm, và báo lại.
 - Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Sửa chữ của chính từ đó (cột `term`) thì làm trong Sheet.

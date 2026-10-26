@@ -473,8 +473,8 @@ const KEYS = {
   settings: 'tv.settings', lastSync: 'tv.lastSync'
 };
 
-// Loại từ do người dùng tạo, lưu ở tab types của Sheet. Đây chỉ là chữ viết tắt quen thuộc đặt trước nghĩa khi từ
-// có nhiều loại: (n) cuộc chạy. Cột abbr ở tab types ghi đè; loại không có ở đây mà chưa ghi abbr thì dùng nguyên tên.
+// Loại từ do người dùng tạo, lưu ở tab types của Sheet. Đây chỉ là chữ viết tắt quen thuộc đặt trước nghĩa:
+// (n) cuộc chạy. Cột abbr ở tab types ghi đè; loại không có ở đây mà chưa ghi abbr thì dùng nguyên tên.
 const ABBR = {
   noun: 'n', verb: 'v', adjective: 'adj', adverb: 'adv', pronoun: 'pron', preposition: 'prep',
   conjunction: 'conj', interjection: 'interj', 'phrasal verb': 'phr v'
@@ -847,36 +847,37 @@ function renderSugg() {
   $sugg.replaceChildren(...chips);
 }
 // Chọn một loại: loại đã có thì giữ đúng cách viết đã có, chưa có thì thành loại mới.
-// Chọn loại thứ hai trở đi: mỗi loại một dòng nghĩa mở đầu bằng (n), (v)…, các dòng chưa ghi loại là của loại chọn trước.
+// Mỗi loại một dòng nghĩa mở đầu bằng (n), (v)…, kể cả khi chỉ chọn một loại. Nghĩa chưa ghi loại nào là của loại chọn đầu tiên.
 function pickType(name) {
   const t = typeName(name);
   $typeIn.value = '';
   if (t && !picked.some(x => normTerm(x) === normTerm(t))) {
     picked.push(knownTypes().find(x => normTerm(x) === normTerm(t)) || t);
-    if (picked.length >= 2) {
-      let ls = lines($meaning.value);
-      if (ls.length && !ls.some(l => PREFIX.test(l))) {
-        const first = abbr(picked[0]);
-        ls = ls.map(l => `(${first}) ${l}`);
-      }
-      picked.forEach(x => {
-        const tag = `(${abbr(x)})`;
-        if (!ls.some(l => l.startsWith(tag))) ls.push(tag);
-      });
-      // dòng mới chỉ có (v) thì chừa sẵn dấu cách để gõ nghĩa tiếp
-      $meaning.value = ls.map(l => l.replace(PREFIX, '').trim() ? l : l + ' ').join('\n');
+    let ls = lines($meaning.value);
+    if (ls.length && !ls.some(l => PREFIX.test(l))) {
+      const first = abbr(picked[0]);
+      ls = ls.map(l => `(${first}) ${l}`);
     }
+    picked.forEach(x => {
+      const tag = `(${abbr(x)})`;
+      if (!ls.some(l => l.startsWith(tag))) ls.push(tag);
+    });
+    // dòng mới chỉ có (v) thì chừa sẵn dấu cách để gõ nghĩa tiếp
+    $meaning.value = ls.map(l => l.replace(PREFIX, '').trim() ? l : l + ' ').join('\n');
   }
   renderTypes();
   checkAdd();
 }
-// Bỏ một loại: chỉ xoá dòng nghĩa của loại đó nếu dòng còn trống
+// Bỏ một loại: xoá dòng nghĩa của loại đó nếu dòng còn trống. Bỏ loại duy nhất còn lại thì gỡ luôn (n) ở các dòng
+// đã ghi nghĩa, giữ phần nghĩa, để chọn loại khác thay vào là thành (v) cuộc chạy
 function unpickType(name) {
   const t = picked.find(x => normTerm(x) === normTerm(name));
   if (!t) return;
   picked = picked.filter(x => x !== t);
   const tag = `(${abbr(t)})`;
-  $meaning.value = $meaning.value.split('\n').filter(l => l.trim() !== tag).join('\n');
+  let ls = $meaning.value.split('\n').filter(l => l.trim() !== tag);
+  if (!picked.length) ls = ls.map(l => l.trim().startsWith(tag) ? l.trim().slice(tag.length).trim() : l);
+  $meaning.value = ls.join('\n');
   renderTypes();
   checkAdd();
 }
