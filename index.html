@@ -76,10 +76,23 @@
     padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px calc(env(safe-area-inset-bottom, 0px) + 16px);
   }
 
-  /* Thanh trên: số thẻ, đồng bộ, cài đặt */
+  /* Thanh trên: số thẻ (chạm để xem thống kê), tất cả từ, thêm từ, đồng bộ, cài đặt */
   .top { display: flex; align-items: center; gap: 10px; }
-  .stats { flex: 1; margin: 0; font-size: 15px; color: var(--desk-muted); }
+  .stats {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 15px;
+    text-align: left;
+    color: var(--desk-muted);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
   .stats b { color: var(--desk-text); font-weight: 600; }
+  .stats span { white-space: nowrap; }    /* màn hình hẹp thì xuống dòng giữa hai vế, không ngắt giữa vế */
   .tool {
     position: relative;
     flex: none;
@@ -371,6 +384,216 @@
   .actions .del { color: var(--danger); }
   .actions .primary.danger { background: var(--danger-fill); color: #fff; }
 
+  /* Bảng toàn màn hình: Tất cả từ và Thống kê trên giấy; xem một từ thì trên bàn, như lúc học */
+  dialog.full {
+    width: 100%;
+    max-width: 540px;
+    height: 100%;
+    max-height: none;
+    margin: 0 auto;
+    padding: 0;
+    border-radius: 0;
+    overflow: hidden;
+  }
+  dialog.full[open] { display: flex; flex-direction: column; }
+  .ptop {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px 12px;
+  }
+  .seg { flex: 1; display: flex; gap: 2px; padding: 3px; border: 1px solid var(--rule); border-radius: 12px; }
+  .seg button {
+    flex: 1;
+    height: 36px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--pencil);
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .seg button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+  .x {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .x svg { width: 20px; height: 20px; }
+  .lib :focus-visible { outline-color: var(--ink); }
+  .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .pane[hidden] { display: none; }
+  .scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 18px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .pills button {
+    padding: 5px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: transparent;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .pills button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+  .pills small { margin-left: 5px; font-size: inherit; opacity: .7; }
+
+  /* Tất cả từ: ô tìm, cách xếp, lọc, rồi danh sách */
+  .find { flex: none; padding: 0 18px 12px; border-bottom: 1px solid var(--rule); }
+  .find .line { display: flex; gap: 8px; }
+  dialog .find input { flex: 1; width: auto; min-width: 0; padding: 9px 12px; }
+  .sort { position: relative; flex: none; display: flex; }
+  .sort select {
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0 30px 0 12px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 16px;                       /* nhỏ hơn 16px thì iPhone phóng to trang khi chạm */
+    cursor: pointer;
+  }
+  .sort::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 13px;
+    width: 7px;
+    height: 7px;
+    border: solid var(--pencil);
+    border-width: 0 1.5px 1.5px 0;
+    transform: translateY(-70%) rotate(45deg);
+    pointer-events: none;
+  }
+  .words { margin: 0; padding: 0; list-style: none; }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: center;
+    width: 100%;
+    padding: 10px 0;
+    border: 0;
+    border-bottom: 1px solid var(--rule);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .row:focus-visible { outline-offset: -2px; }
+  .rt, .rm { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rt { font-size: 17px; line-height: 1.4; }
+  .rt span { font-size: 14px; color: var(--pencil); }
+  .rm { font-size: 15px; line-height: 1.4; color: var(--pencil); }
+  .rs { grid-column: 2; grid-row: 1 / span 2; font-size: 12.5px; line-height: 1.5; text-align: right; color: var(--pencil); }
+  .rs em { font-style: normal; font-weight: 600; color: var(--ink); }
+  .none { margin: 40px 0; text-align: center; color: var(--pencil); }
+
+  /* Thống kê: mỗi chỉ số một biểu đồ cột; cột đang chọn đậm màu mực, các cột khác màu bút chì */
+  .metric { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .metric h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--pencil); }
+  .fig { margin: 2px 0 14px; color: var(--pencil); }
+  .fig b {
+    margin-right: 4px;
+    padding: 0 3px;
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--ink);
+    background: linear-gradient(transparent var(--mark-from), var(--marker) var(--mark-from));
+  }
+  .chart { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; }
+  .yax, .plot { position: relative; height: 132px; }
+  .yax { min-width: 14px; }
+  .yax span {
+    position: absolute;
+    right: 0;
+    bottom: calc(var(--y) * 100%);
+    transform: translateY(50%);
+    font-size: 11px;
+    line-height: 1;
+    color: var(--pencil);
+    font-variant-numeric: tabular-nums;
+  }
+  .gl { position: absolute; left: 0; right: 0; bottom: calc(var(--y) * 100%); height: 1px; background: var(--rule); }
+  .cols { position: absolute; inset: 0; display: flex; }
+  .col {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .col i {
+    display: block;
+    width: min(24px, 66%);
+    height: calc(var(--h) * 100%);
+    border-radius: 4px 4px 0 0;
+    background: var(--pencil);
+  }
+  .col[aria-pressed="true"] i { background: var(--ink); }
+  .col:focus-visible { outline-offset: -2px; }
+  @media (hover: hover) {
+    .col:hover i { opacity: .75; }
+    .col[aria-pressed="true"]:hover i { opacity: 1; }
+  }
+  .xax {
+    grid-column: 2;
+    display: flex;
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--pencil);
+    font-variant-numeric: tabular-nums;
+  }
+  .xax span { flex: 1; min-width: 0; text-align: center; white-space: nowrap; }
+  .xax .on { color: var(--ink); font-weight: 700; }
+  .sum { margin: 12px 0 0; font-size: 13.5px; color: var(--pencil); }
+  .tbl { margin-top: 16px; }
+  .tbl summary { padding: 4px 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .tbl table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .tbl th, .tbl td { padding: 6px 4px; border-bottom: 1px solid var(--rule); text-align: right; }
+  .tbl th:first-child { text-align: left; font-weight: 400; }
+  .tbl thead th { font-weight: 600; color: var(--pencil); }
+  .note { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--pencil); }
+
+  /* Xem một từ: thẻ như lúc học, hai nút đi tới từ trước và từ sau */
+  dialog.desk {
+    background: var(--desk);
+    color: var(--desk-text);
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  }
+  .vtop { flex: none; display: flex; align-items: center; gap: 10px; }
+  .pos { flex: 1; margin: 0; text-align: right; font-size: 15px; color: var(--desk-muted); font-variant-numeric: tabular-nums; }
+
   @media (prefers-reduced-motion: reduce) {
     .card, .toast { transition: none; }
     .tool.busy svg { animation: none; }
@@ -381,7 +604,10 @@
 <body>
 <div class="app">
   <header class="top">
-    <p class="stats" id="stats"></p>
+    <button class="stats" id="stats" type="button"></button>
+    <button class="tool" id="btnLib" type="button" aria-label="Tất cả từ và thống kê">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    </button>
     <button class="tool" id="btnAdd" type="button" aria-label="Thêm từ mới">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
@@ -465,13 +691,83 @@
   </div>
 </dialog>
 
+<dialog id="dlgLib" class="full lib" aria-label="Tất cả từ và thống kê">
+  <div class="ptop">
+    <div class="seg" id="tabs" role="tablist" aria-label="Tất cả từ và thống kê">
+      <button id="tabWords" type="button" role="tab" aria-controls="paneWords" aria-selected="true">Tất cả từ</button>
+      <button id="tabStats" type="button" role="tab" aria-controls="paneStats" aria-selected="false" tabindex="-1">Thống kê</button>
+    </div>
+    <button class="x" id="btnLibClose" type="button" aria-label="Đóng">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="pane" id="paneWords" role="tabpanel" aria-labelledby="tabWords">
+    <div class="find">
+      <div class="line">
+        <input id="inFind" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Tìm từ hoặc nghĩa" aria-label="Tìm từ hoặc nghĩa">
+        <div class="sort">
+          <select id="inSort" aria-label="Sắp xếp">
+            <option value="new">Mới thêm</option>
+            <option value="az">A → Z</option>
+            <option value="old">Lâu chưa xem</option>
+          </select>
+        </div>
+      </div>
+      <div class="pills" id="filt" role="group" aria-label="Lọc từ">
+        <button type="button" data-f="all" aria-pressed="true">Tất cả<small></small></button>
+        <button type="button" data-f="learn" aria-pressed="false">Đang học<small></small></button>
+        <button type="button" data-f="done" aria-pressed="false">Đã nắm rõ<small></small></button>
+      </div>
+    </div>
+    <div class="scroll" id="wordsBox">
+      <ul class="words" id="words"></ul>
+      <p class="none" id="wordsNone" hidden></p>
+    </div>
+  </div>
+  <div class="pane" id="paneStats" role="tabpanel" aria-labelledby="tabStats" hidden>
+    <div class="scroll" id="statsBox">
+      <div class="pills" id="units" role="group" aria-label="Thống kê theo">
+        <button type="button" data-u="day" aria-pressed="true">Theo ngày</button>
+        <button type="button" data-u="week" aria-pressed="false">Theo tuần</button>
+        <button type="button" data-u="month" aria-pressed="false">Theo tháng</button>
+      </div>
+      <div id="statsBody"></div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlgView" class="full desk" aria-label="Xem từ">
+  <div class="vtop">
+    <button class="tool" id="btnViewBack" type="button" aria-label="Quay lại danh sách">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <p class="pos" id="viewPos"></p>
+  </div>
+  <div class="deck">
+    <article class="card" id="viewCard"></article>
+  </div>
+  <p class="hint" id="viewHint"></p>
+  <div class="bar">
+    <button id="btnPrev" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Từ trước
+    </button>
+    <button class="next" id="btnNextWord" type="button">
+      Từ sau
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+  </div>
+</dialog>
+
 <script>
 'use strict';
 
 const KEYS = {
   items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', deletes: 'tv.deletes', types: 'tv.types',
-  settings: 'tv.settings', lastSync: 'tv.lastSync'
+  settings: 'tv.settings', lastSync: 'tv.lastSync', log: 'tv.log'
 };
+const NUM = new Intl.NumberFormat('vi-VN');                                // 1.234
+const AVG = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });  // 3,2
 
 // Loại từ do người dùng tạo, lưu ở tab types của Sheet. Đây chỉ là chữ viết tắt quen thuộc đặt trước nghĩa:
 // (n) cuộc chạy. Cột abbr ở tab types ghi đè; loại không có ở đây mà chưa ghi abbr thì dùng nguyên tên.
@@ -509,13 +805,22 @@ let deletes = {};                      // từ đã xoá trong app, chờ xoá t
 let types = [];                        // loại từ ở tab types của Sheet, nhận về lúc đồng bộ: [{ type, abbr }]
 let settings = { sheet: '', key: '', url: '' }; // url: link script riêng, bỏ trống thì dùng SHARED_URL
 let lastSync = '';
+// Lượt xem mỗi ngày, cho thống kê: { '2026-10-27': 35 }. mine: của máy này, đếm trong máy; synced: của máy này mà
+// Sheet đã ghi; others: của các máy khác dùng chung Sheet. ok: script ghi được lượt xem (script cũ thì không)
+let log = { device: '', mine: {}, synced: {}, others: {}, ok: true };
 let current = null;                    // thẻ đang hiện
 let demo = false, busy = false, syncing = false, drag = null, toastTimer = 0;
 let editing = null, before = null, filled = null, lookupTimer = 0;  // bảng đang sửa thẻ nào, và các ô trước/sau khi nạp
 let picked = [];                       // loại từ đang chọn trong bảng Thêm/Sửa từ
+let libFilter = 'all', libSort = 'new', libList = [], libShown = 0;  // Tất cả từ: lọc, cách xếp, danh sách, số dòng đã vẽ
+let statUnit = 'day', statSel = -1, statTable = false;  // Thống kê: theo ngày/tuần/tháng, cột đang chọn (-1: hiện tại)
+let viewIds = [], viewAt = 0, viewBusy = false, vdrag = null;  // Xem một từ: danh sách lúc bấm vào, đang ở từ thứ mấy
 let $card, $stats, $badge, $sync, $master, $next, $hint, $toast, $toastMsg, $toastAct, $dlg, $sheet, $key, $url, $help, $info;
 let $add, $addTitle, $addMsg, $term, $phonetic, $tags, $typeIn, $sugg, $meaning, $example, $addSave, $addDel;
 let $del, $delTitle, $delText;
+let $lib, $tabWords, $tabStats, $paneWords, $paneStats, $find, $sort, $filt, $words, $wordsBox, $wordsNone, $units;
+let $statsBox, $statsBody;
+let $view, $viewCard, $viewPos, $viewHint, $prev, $nextWord;
 
 /* ---------- Hàm tiện ích ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -545,10 +850,29 @@ function typeName(s) { return String(s == null ? '' : s).trim().replace(/\s+/g, 
 function typesOf(type) { return String(type == null ? '' : type).split(',').map(typeName).filter(Boolean); }
 // So từ, và so loại từ: không phân biệt hoa thường và khoảng trắng thừa
 function normTerm(s) { return String(s == null ? '' : s).normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase(); }
-// Thẻ lưu trong máy từ bản app trước, hay do script cũ trả về, chưa có phiên âm
+// Thẻ lưu trong máy từ bản app trước, hay do script cũ trả về, chưa có phiên âm hay ngày thêm
 function fill(it) {
   if (typeof it.phonetic !== 'string') it.phonetic = '';
+  if (typeof it.added !== 'string') it.added = '';
   return it;
+}
+// Ngày theo giờ trong máy, dạng 2026-10-27. So hai chuỗi này là so hai ngày
+function dayKey(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+// Số theo ngày đọc trong máy hay nhận từ Sheet: chỉ giữ ngày đúng dạng và số dương
+function counts(o) {
+  const out = {};
+  if (o && typeof o === 'object') {
+    Object.keys(o).forEach(d => {
+      const n = Math.floor(Number(o[d]));
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d) && n > 0) out[d] = n;
+    });
+  }
+  return out;
+}
+// Bỏ dấu và hoa thường để tìm: gõ "bu dap" vẫn ra "bù đắp"
+function fold(s) {
+  return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
 }
 // ID của Sheet: lấy từ link …/spreadsheets/d/<ID>/edit (kể cả dạng /u/1/d/), hoặc nhận thẳng ID
 function sheetIdOf(s) {
@@ -559,6 +883,13 @@ function scriptUrl() { return settings.url || SHARED_URL; }
 // Id 12 ký tự hex cho từ thêm trong app; script giữ nguyên id này khi ghi vào Sheet
 function newId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(16).padStart(2, '0')).join('');
+}
+// Tên máy ghi ở cột device của tab log: loại máy cho dễ nhận ra, cộng 6 ký tự ngẫu nhiên
+function newDevice() {
+  const ua = navigator.userAgent;
+  const kind = /iPhone/.test(ua) ? 'iphone' : /iPad/.test(ua) ? 'ipad' : /Android/.test(ua) ? 'android'
+    : /Mac/.test(ua) ? 'mac' : /Windows/.test(ua) ? 'windows' : 'web';
+  return `${kind}-${newId().slice(0, 6)}`;
 }
 function kindOf(type) {
   const raw = String(type == null ? '' : type).trim();
@@ -601,7 +932,7 @@ function store(key, value) {
 function persist() {
   if (demo) return true;
   const ok = store(KEYS.items, items) && store(KEYS.pending, pending) && store(KEYS.edits, edits)
-    && store(KEYS.deletes, deletes);
+    && store(KEYS.deletes, deletes) && store(KEYS.log, log);
   if (!ok) toast('Không lưu được vào bộ nhớ máy. Kiểm tra dung lượng trống.');
   return ok;
 }
@@ -615,9 +946,29 @@ function recordChange(item, patch) {
   Object.assign(item, patch);
   if (!demo) {
     pending[item.id] = Object.assign({}, pending[item.id], patch);
+    if (patch.lastSeen) {                // mỗi lần ghi last seen lúc học là một lượt xem
+      const day = dayKey(new Date(patch.lastSeen));
+      log.mine[day] = (log.mine[day] || 0) + 1;
+    }
     persist();
   }
   renderTop();
+}
+// Ngày có lượt xem của máy này mà Sheet chưa ghi đủ
+function unsentViews() {
+  const out = {};
+  Object.keys(log.mine).forEach(d => { if (log.mine[d] > (log.synced[d] || 0)) out[d] = log.mine[d]; });
+  return out;
+}
+// Đọc lượt xem lưu trong máy. Lần đầu mở bản app có thống kê thì đặt tên cho máy
+function loadLog() {
+  const o = load(KEYS.log, null) || {};
+  const fresh = typeof o.device !== 'string' || !o.device;
+  log = {
+    device: fresh ? newDevice() : o.device,
+    mine: counts(o.mine), synced: counts(o.synced), others: counts(o.others), ok: o.ok !== false
+  };
+  if (fresh) store(KEYS.log, log);
 }
 // Bản sửa chưa gửi được thì trả về hàng đợi; ô nào sửa thêm trong lúc chờ thì giữ "from" cũ, "to" mới
 function keepEdits(sent) {
@@ -642,7 +993,9 @@ function renderTop() {
   const left = items.filter(x => !x.mastered).length;
   $stats.innerHTML = demo
     ? 'Thẻ mẫu, bấm ⚙ để kết nối Sheet'
-    : `<b>${left}</b> đang học, <b>${items.length - left}</b> đã nắm rõ`;
+    : `<span><b>${left}</b> đang học,</span> <span><b>${items.length - left}</b> đã nắm rõ</span>`;
+  $stats.setAttribute('aria-label', demo ? 'Thẻ mẫu. Kết nối Sheet'
+    : `${left} đang học, ${items.length - left} đã nắm rõ. Xem thống kê`);
   const n = unsynced();
   $badge.hidden = n === 0;
   $badge.textContent = n > 99 ? '99+' : String(n);
@@ -660,6 +1013,16 @@ function renderCard() {
       : 'Sheet chưa có từ nào.<br>Bấm + để thêm từ mới.'}</p>`;
     return;
   }
+  $card.className = cardClass(it);
+  $card.innerHTML = cardHtml(it);
+}
+
+// Thẻ ngữ pháp có đường kẻ màu khác
+function cardClass(it) {
+  return typesOf(it.type).map(kindOf).some(k => k.cls === 'grammar') ? 'card grammar' : 'card';
+}
+// Nội dung một thẻ, dùng cho thẻ đang học và thẻ xem trong Tất cả từ
+function cardHtml(it) {
   const kinds = typesOf(it.type).map(kindOf);
   // (n) cuộc chạy: phần loại từ ở đầu dòng in nghiêng
   const meaning = lines(it.meaning).map(l => rich(l).replace(PREFIX, '<i>$&</i>')).join('<br>');
@@ -671,8 +1034,7 @@ function renderCard() {
     : 'chưa xem';
   const edit = demo ? '' : '<button class="edit" type="button" aria-label="Sửa thẻ này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>';
   const phon = it.phonetic ? `<p class="phon">${esc(it.phonetic)}</p>` : '';
-  $card.className = kinds.some(k => k.cls === 'grammar') ? 'card grammar' : 'card';
-  $card.innerHTML = `
+  return `
     <div class="head"><h1 class="term">${esc(it.term)}</h1>${phon}</div>
     <div class="body">${meaning ? `<p class="meaning">${meaning}</p>` : ''}${examples}</div>
     <div class="foot"><span>${esc(kinds.map(k => k.label).join(', '))}</span><span class="seen">last seen: ${seen}</span>${edit}</div>`;
@@ -759,7 +1121,12 @@ function onUp(e) {
 }
 
 /* ---------- Thông báo ---------- */
+// Bảng đang mở trên cùng: bảng xoá nằm trên bảng sửa, bảng sửa trên bảng xem từ, xem từ trên Tất cả từ
+function topDialog() { return [$del, $add, $view, $lib, $dlg].find(d => d.open) || null; }
 function toast(msg, actionLabel, action) {
+  // Đang mở bảng thì đặt thông báo vào bảng trên cùng, không thì bảng che mất
+  const host = topDialog() || document.body;
+  if ($toast.parentNode !== host) host.appendChild($toast);
   $toastMsg.textContent = msg;
   $toastAct.hidden = !actionLabel;
   $toastAct.textContent = actionLabel || '';
@@ -983,7 +1350,7 @@ function addWord() {
   const it = {
     id: newId(), type: checkedTypes().join(', '), term, phonetic: $phonetic.value.trim(),
     meaning: cleanMeaning($meaning.value), example: lines($example.value).join('\n'),
-    lastSeen: '', mastered: false, local: true
+    added: new Date().toISOString(), lastSeen: '', mastered: false, local: true
   };
   if (demo) { items = []; demo = false; }  // từ đầu tiên của bạn thay cho thẻ mẫu
   items.push(it);
@@ -1004,7 +1371,8 @@ function updateWord() {
 function saved(it, msg) {
   resetForm();
   $add.close();
-  show(it);
+  // Sửa từ trong Tất cả từ thì thẻ đang học giữ nguyên, chỉ vẽ lại phòng khi đó chính là từ vừa sửa
+  if ($lib.open) { renderCard(); refreshLib(); } else show(it);
   renderTop();
   if (persist()) toast(msg);
 }
@@ -1033,7 +1401,314 @@ function deleteWord() {
   $add.close();
   if (current === it) next(); else renderCard();
   renderTop();
+  refreshLib();
   if (persist()) toast(inSheet ? `Đã xoá “${it.term}”. Bấm ↻ để xoá trong Sheet.` : `Đã xoá “${it.term}”.`);
+}
+
+/* ---------- Tất cả từ ----------
+   Xem lại mọi từ, kể cả từ đã nắm rõ. Xem ở đây không ghi last seen và không tính lượt xem.
+   Danh sách vẽ dần từng đoạn khi cuộn tới, nên bộ thẻ vài nghìn từ vẫn mở nhanh. */
+const CHUNK = 100;
+const folded = new WeakMap();            // thẻ → chữ đã bỏ dấu để tìm; thẻ đổi chữ thì tính lại
+function searchKeys(it) {
+  let k = folded.get(it);
+  if (!k || k.term !== it.term || k.meaning !== it.meaning) {
+    k = { term: it.term, meaning: it.meaning, t: fold(it.term), m: fold(String(it.meaning).replace(/\*/g, '')) };
+    folded.set(it, k);
+  }
+  return k;
+}
+function openLib(tab) {
+  statSel = -1;
+  showTab(tab);
+  $statsBox.scrollTop = 0;               // mở lại thì thống kê bắt đầu từ trên cùng
+  if (!$lib.open) $lib.showModal();
+}
+function showTab(tab) {
+  const words = tab === 'words';
+  $tabWords.setAttribute('aria-selected', String(words));
+  $tabStats.setAttribute('aria-selected', String(!words));
+  $tabWords.tabIndex = words ? 0 : -1;
+  $tabStats.tabIndex = words ? -1 : 0;
+  $paneWords.hidden = !words;
+  $paneStats.hidden = words;
+  if (words) renderWords(); else renderStats();
+}
+// Bộ thẻ vừa đổi (sửa, xoá, đồng bộ xong) trong lúc đang mở bảng: vẽ lại, giữ chỗ đang cuộn
+function refreshLib() {
+  if (!$lib.open) return;
+  if ($paneWords.hidden) renderStats(); else renderWords(true);
+  if ($view.open) renderView();
+}
+function renderWords(keep) {
+  const q = fold($find.value);
+  const rank = new Map();                // khớp ở đâu: 0 từ bắt đầu bằng chữ tìm, 1 từ có chữ đó, 2 nghĩa có chữ đó
+  let list = items;
+  if (q) {
+    list = items.filter(it => {
+      const k = searchKeys(it);
+      const r = k.t.startsWith(q) ? 0 : k.t.includes(q) ? 1 : k.m.includes(q) ? 2 : -1;
+      if (r !== -1) rank.set(it, r);
+      return r !== -1;
+    });
+  }
+  const done = list.filter(x => x.mastered).length;
+  const n = { all: list.length, learn: list.length - done, done };
+  $filt.querySelectorAll('button').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.f === libFilter));
+    b.querySelector('small').textContent = NUM.format(n[b.dataset.f]);
+  });
+  if (libFilter !== 'all') list = list.filter(x => x.mastered === (libFilter === 'done'));
+  // Mới thêm: theo ngày thêm, mới trước; từ chưa có ngày thêm thì dòng dưới trong Sheet đứng trước.
+  // Lâu chưa xem: thẻ chưa xem trước, rồi tới thẻ xem lâu nhất. Tính sẵn khoá để xếp vài nghìn từ vẫn nhanh
+  const pos = new Map(items.map((x, i) => [x, i]));
+  const key = new Map(list.map(x => [x, libSort === 'az' ? searchKeys(x).t
+    : Date.parse(libSort === 'new' ? x.added : x.lastSeen) || 0]));
+  const by = {
+    new: (a, b) => key.get(b) - key.get(a) || pos.get(b) - pos.get(a),
+    az: (a, b) => (key.get(a) < key.get(b) ? -1 : key.get(a) > key.get(b) ? 1 : pos.get(a) - pos.get(b)),
+    old: (a, b) => key.get(a) - key.get(b) || pos.get(a) - pos.get(b)
+  }[libSort];
+  libList = list.slice().sort((a, b) => (rank.get(a) || 0) - (rank.get(b) || 0) || by(a, b));
+  const top = $wordsBox.scrollTop, shown = libShown;
+  libShown = 0;
+  $words.textContent = '';
+  moreWords(keep ? shown : 0);
+  $wordsBox.scrollTop = keep ? top : 0;
+  $wordsNone.hidden = libList.length > 0;
+  $wordsNone.textContent = !items.length ? 'Chưa có từ nào.'
+    : q ? `Không có từ nào khớp “${$find.value.trim()}”.`
+    : libFilter === 'done' ? 'Chưa có từ nào đã nắm rõ.' : 'Bạn đã nắm rõ hết các từ.';
+}
+// Vẽ thêm một đoạn danh sách, hoặc vẽ cho tới dòng thứ upTo
+function moreWords(upTo) {
+  const end = Math.min(libList.length, Math.max(libShown + CHUNK, upTo || 0));
+  if (end <= libShown) return;
+  const now = Date.now();
+  $words.insertAdjacentHTML('beforeend',
+    libList.slice(libShown, end).map((it, k) => rowHtml(it, libShown + k, now)).join(''));
+  libShown = end;
+}
+function rowHtml(it, i, now) {
+  const meaning = lines(it.meaning).join(' · ').replace(/\*/g, '');
+  const seen = validDate(it.lastSeen) ? `xem ${agoText(daysAgo(it.lastSeen, now))}` : 'chưa xem';
+  return `<li><button class="row" type="button" data-i="${i}">`
+    + `<span class="rt"><b>${esc(it.term)}</b>${it.phonetic ? ` <span>${esc(it.phonetic)}</span>` : ''}</span>`
+    + (meaning ? `<span class="rm">${esc(meaning)}</span>` : '')
+    + `<span class="rs">${seen}${it.mastered ? '<br><em>đã nắm rõ</em>' : ''}</span></button></li>`;
+}
+
+/* ---------- Xem một từ ----------
+   Bấm một dòng trong Tất cả từ: hiện thẻ như lúc học, đi qua các từ theo thứ tự của danh sách lúc bấm vào.
+   Không ghi last seen. */
+function openView(i) {
+  viewIds = libList.map(x => x.id);
+  viewAt = i;
+  renderView();
+  if (!$view.open) $view.showModal();
+}
+function viewItem() { return items.find(x => x.id === viewIds[viewAt]) || null; }
+function renderView() {
+  const byId = new Map(items.map(x => [x.id, x]));
+  const cur = viewIds[viewAt];
+  viewIds = viewIds.filter(id => byId.has(id));     // bỏ từ vừa bị xoá, trong app hay trong Sheet
+  const at = viewIds.indexOf(cur);
+  viewAt = Math.max(0, Math.min(at !== -1 ? at : viewAt, viewIds.length - 1));
+  const it = byId.get(viewIds[viewAt]);
+  if (!it) { $view.close(); return; }
+  $viewCard.className = cardClass(it);
+  $viewCard.innerHTML = cardHtml(it);
+  $viewPos.textContent = `${NUM.format(viewAt + 1)} / ${NUM.format(viewIds.length)}`;
+  $viewHint.textContent = (validDate(it.added) ? `Thêm ngày ${fmtDate(it.added)}` : 'Chưa rõ ngày thêm')
+    + (it.mastered ? ' · đã nắm rõ' : '');
+  $prev.disabled = viewAt === 0;
+  $nextWord.disabled = viewAt >= viewIds.length - 1;
+}
+// Sang từ trước (dir -1) hay từ sau (1): thẻ cũ trượt ra, thẻ mới trượt vào từ phía bên kia
+function viewStep(dir) {
+  const to = viewAt + dir;
+  if (viewBusy || to < 0 || to >= viewIds.length) return;
+  viewBusy = true;
+  $viewCard.style.transition = '';
+  $viewCard.style.transform = `translateX(${-dir * (window.innerWidth + 60)}px)`;
+  $viewCard.style.opacity = '0';
+  setTimeout(() => {
+    viewAt = to;
+    renderView();
+    $viewCard.style.transition = 'none';
+    $viewCard.style.transform = `translateX(${dir * 40}px)`;
+    void $viewCard.offsetWidth;
+    $viewCard.style.transition = '';
+    $viewCard.style.transform = '';
+    $viewCard.style.opacity = '';
+    viewBusy = false;
+  }, 200);
+}
+// Vuốt thẻ: sang trái là từ sau, sang phải là từ trước
+function onViewDown(e) {
+  if (viewBusy || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  vdrag = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false };
+}
+function onViewMove(e) {
+  if (!vdrag || e.pointerId !== vdrag.id) return;
+  if (!vdrag.on) {
+    const dx = e.clientX - vdrag.x, dy = e.clientY - vdrag.y;
+    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy)) return;
+    vdrag.on = true;
+    vdrag.x += Math.sign(dx) * 10;
+    try { $viewCard.setPointerCapture(e.pointerId); } catch (_) {}
+    $viewCard.style.transition = 'none';
+  }
+  $viewCard.style.transform = `translateX(${e.clientX - vdrag.x}px)`;
+}
+function onViewUp(e) {
+  if (!vdrag || e.pointerId !== vdrag.id) return;
+  const on = vdrag.on, dx = e.clientX - vdrag.x;
+  vdrag = null;
+  if (!on) return;
+  const dir = dx < 0 ? 1 : -1;
+  const to = viewAt + dir;
+  if (e.type === 'pointerup' && Math.abs(dx) > Math.min(80, $viewCard.offsetWidth * 0.2)
+    && to >= 0 && to < viewIds.length) {
+    viewStep(dir);
+  } else {
+    $viewCard.style.transition = '';
+    $viewCard.style.transform = '';
+  }
+}
+
+/* ---------- Thống kê ----------
+   Từ mới: đếm theo ngày thêm của từng từ còn trong bộ thẻ. Lượt xem: mỗi lần ghi last seen lúc học, cộng cả các máy
+   khác dùng chung Sheet. Một biểu đồ cột cho mỗi chỉ số; chạm một cột để xem số của khoảng đó. */
+const SPAN = { day: 14, week: 12, month: 12 };            // số cột của biểu đồ
+const UNIT = { day: 'ngày', week: 'tuần', month: 'tháng' };
+const WEEKDAY = ['Chủ nhật', 'thứ Hai', 'thứ Ba', 'thứ Tư', 'thứ Năm', 'thứ Sáu', 'thứ Bảy'];
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+// Ngày đầu của n khoảng (ngày, tuần tính từ thứ Hai, tháng), cũ trước, khoảng cuối chứa hôm nay.
+// Thêm một mốc là ngày đầu của khoảng kế tiếp, để biết khoảng cuối hết ở đâu
+function periods(unit, n, now) {
+  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+  const monday = d - (now.getDay() + 6) % 7;
+  const at = unit === 'month' ? i => new Date(y, m - i, 1)
+    : unit === 'week' ? i => new Date(y, m, monday - 7 * i)
+    : i => new Date(y, m, d - i);
+  const out = [];
+  for (let i = n - 1; i >= -1; i--) out.push(at(i));
+  return out;
+}
+// Cộng số theo ngày vào từng khoảng
+function sums(byDay, bounds) {
+  const keys = bounds.map(dayKey);
+  const out = keys.slice(1).map(() => 0);
+  Object.keys(byDay).forEach(k => {
+    if (k < keys[0] || k >= keys[keys.length - 1]) return;
+    let i = out.length - 1;
+    while (k < keys[i]) i--;
+    out[i] += byDay[k];
+  });
+  return out;
+}
+function addedByDay() {
+  const out = {};
+  items.forEach(it => {
+    if (!validDate(it.added)) return;
+    const k = dayKey(new Date(it.added));
+    out[k] = (out[k] || 0) + 1;
+  });
+  return out;
+}
+// Lượt xem mỗi ngày: các máy khác cộng với máy này. Sheet có thể chưa ghi kịp số mới nhất của máy này nên lấy số lớn hơn
+function viewsByDay() {
+  const out = Object.assign({}, log.others);
+  const own = Object.assign({}, log.synced);
+  Object.keys(log.mine).forEach(k => { own[k] = Math.max(own[k] || 0, log.mine[k]); });
+  Object.keys(own).forEach(k => { out[k] = (out[k] || 0) + own[k]; });
+  return out;
+}
+function periodName(unit, s, i, n) {
+  const dm = x => `${x.getDate()}/${x.getMonth() + 1}`;
+  const last = i === n - 1, prev = i === n - 2;
+  if (unit === 'day') return last ? 'hôm nay' : prev ? 'hôm qua' : `${WEEKDAY[s.getDay()]} ${dm(s)}`;
+  if (unit === 'week') {
+    return last ? 'tuần này' : prev ? 'tuần trước'
+      : `tuần ${dm(s)} – ${dm(new Date(s.getFullYear(), s.getMonth(), s.getDate() + 6))}`;
+  }
+  return last ? 'tháng này' : prev ? 'tháng trước' : `tháng ${s.getMonth() + 1}/${s.getFullYear()}`;
+}
+// Nhãn dưới cột: ngày trong tháng, ngày đầu tuần (cách hai cột ghi một), hay tháng
+function tickName(unit, s, i, n) {
+  if (unit === 'day') return String(s.getDate());
+  if (unit === 'week') return (n - 1 - i) % 3 ? '' : `${s.getDate()}/${s.getMonth() + 1}`;
+  return `T${s.getMonth() + 1}`;
+}
+// Vạch chia trục dọc: số tròn, nhiều nhất 4 khoảng
+function ticks(max) {
+  for (let p = 1; ; p *= 10) {
+    for (const s of [1, 2, 5]) {
+      const step = s * p, k = Math.ceil(Math.max(max, 1) / step);
+      if (k <= 4) return Array.from({ length: k + 1 }, (_, i) => i * step);
+    }
+  }
+}
+function renderStats() {
+  const n = SPAN[statUnit], unit = UNIT[statUnit];
+  const bounds = periods(statUnit, n, new Date());
+  const starts = bounds.slice(0, n);
+  const names = starts.map((s, i) => periodName(statUnit, s, i, n));
+  const sel = statSel >= 0 && statSel < n ? statSel : n - 1;
+  $units.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.u === statUnit)));
+  const metrics = [
+    { name: 'Từ mới', noun: 'từ', byDay: addedByDay() },
+    { name: 'Lượt xem', noun: 'lượt', byDay: viewsByDay() }
+  ];
+  let html = '';
+  metrics.forEach((m, mi) => {
+    const data = m.data = sums(m.byDay, bounds);
+    const ts = ticks(Math.max(...data));
+    const top = ts[ts.length - 1];
+    const total = data.reduce((a, b) => a + b, 0);
+    // Trung bình tính từ khoảng có số liệu đầu tiên, để thời gian trước khi app bắt đầu ghi không kéo số xuống
+    const first = Object.keys(m.byDay).reduce((a, k) => (!a || k < a ? k : a), '');
+    const from = first ? starts.findIndex((s, i) => dayKey(bounds[i + 1]) > first) : -1;
+    let sum = `${n} ${unit} gần nhất: ${NUM.format(total)} ${m.noun}`;
+    if (from !== -1 && n - from > 1) sum += ` · trung bình ${AVG.format(total / (n - from))} mỗi ${unit}`;
+    const cols = data.map((v, i) => `<button class="col" type="button" data-i="${i}" aria-pressed="${i === sel}"`
+      + ` tabindex="${i === sel ? 0 : -1}" aria-label="${esc(cap(names[i]))}: ${NUM.format(v)} ${m.noun}"`
+      + ` style="--h:${v > 0 ? Math.max(v / top, 0.02).toFixed(4) : 0}"><i></i></button>`).join('');
+    html += `<section class="metric" aria-labelledby="mt${mi}">
+      <h3 id="mt${mi}">${m.name}</h3>
+      <p class="fig"><b>${NUM.format(data[sel])}</b> ${m.noun} · ${esc(names[sel])}</p>
+      <div class="chart">
+        <div class="yax" aria-hidden="true">${ts.map(t => `<span style="--y:${t / top}">${NUM.format(t)}</span>`).join('')}</div>
+        <div class="plot">${ts.map(t => `<i class="gl" style="--y:${t / top}"></i>`).join('')}<div class="cols" role="group" aria-label="${m.name} theo ${unit}">${cols}</div></div>
+        <div class="xax" aria-hidden="true">${starts.map((s, i) => `<span${i === sel ? ' class="on"' : ''}>${tickName(statUnit, s, i, n)}</span>`).join('')}</div>
+      </div>
+      <p class="sum">${sum}</p>
+    </section>`;
+  });
+  const rows = names.map((name, i) => `<tr><th scope="row">${esc(cap(name))}</th>`
+    + `<td>${NUM.format(metrics[0].data[i])}</td><td>${NUM.format(metrics[1].data[i])}</td></tr>`).reverse().join('');
+  html += `<details class="tbl"${statTable ? ' open' : ''}><summary>Xem dạng bảng</summary><table>
+    <thead><tr><th scope="col">${cap(unit)}</th><th scope="col">Từ mới</th><th scope="col">Lượt xem</th></tr></thead>
+    <tbody>${rows}</tbody></table></details>`;
+  const notes = [];
+  if (demo) notes.push('Đây là thẻ mẫu. Kết nối Sheet hoặc thêm từ để bắt đầu thống kê.');
+  else {
+    const unknown = items.filter(x => !validDate(x.added)).length;
+    if (unknown) notes.push(`${NUM.format(unknown)} từ được thêm trước khi app ghi ngày thêm nên không tính vào Từ mới.`);
+  }
+  notes.push('Mỗi lần vuốt sang thẻ khác hay bấm Đã nắm rõ là một lượt xem. Xem trong Tất cả từ thì không tính.');
+  if (!log.ok && lastSync) notes.push('Script chưa được cập nhật nên lượt xem mới chỉ lưu trong máy này.');
+  html += notes.map(t => `<p class="note">${t}</p>`).join('');
+  $statsBody.innerHTML = html;
+}
+// Chọn một cột: cả hai biểu đồ cùng hiện số của khoảng đó. focus: đưa focus về cột vừa chọn sau khi vẽ lại
+function pickPeriod(el, i, focus) {
+  const charts = Array.from($statsBody.querySelectorAll('.metric'));
+  const k = charts.indexOf(el.closest('.metric'));
+  statSel = i;
+  renderStats();
+  if (focus) $statsBody.querySelectorAll('.metric')[k].querySelector('.col[tabindex="0"]').focus();
 }
 
 /* ---------- Đồng bộ với Google Sheet ---------- */
@@ -1050,6 +1725,7 @@ async function sync() {
   deletes = {};
   const adding = items.filter(x => x.local);
   adding.forEach(x => { x.tried = true; });      // đã gửi đi: xoá từ này sau đó thì phải báo cả Sheet
+  const views = unsentViews();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
   try {
@@ -1060,7 +1736,7 @@ async function sync() {
     const res = await fetch(scriptUrl(), {
       method: 'POST',
       body: JSON.stringify({ sheet: sheetIdOf(settings.sheet), key: settings.key, changes, adds: adding, edits: fixes,
-        deletes: removes }),
+        deletes: removes, device: log.device, views }),
       signal: ctrl.signal
     });
     const text = await res.text();
@@ -1088,6 +1764,22 @@ async function sync() {
     }
     const got = (Array.isArray(data.items) ? data.items : []).map(fill);
     const ids = new Set(got.map(x => x.id));
+    // Script có trường log thì đã ghi lượt xem và ngày thêm. Lượt xem Sheet chưa ghi thì để gửi lần sau
+    const stats = !!data.log && typeof data.log === 'object';
+    if (stats) {
+      log.synced = counts(data.log.mine);
+      log.others = counts(data.log.others);
+    }
+    log.ok = stats;
+    // Ngày thêm: script cũ không ghi nên thẻ giữ ngày đang có trong máy. Script mới mà ô trong Sheet còn trống
+    // (từ thêm lúc script còn là bản cũ) thì gửi ngày đó lên ở lần đồng bộ sau
+    const had = new Map(items.map(x => [x.id, x.added]));
+    got.forEach(x => {
+      const a = had.get(x.id);
+      if (x.added || !validDate(a)) return;
+      x.added = a;
+      if (stats) pending[x.id] = Object.assign({}, pending[x.id], { added: a });
+    });
     // Bản sửa: Sheet đã có nội dung mới thì xong; nằm trong conflicts thì Sheet giữ bản của nó;
     // script cũ chưa biết sửa (không trả conflicts), hay chưa biết phiên âm, thì giữ lại gửi lần sau
     const conflicts = Array.isArray(data.conflicts) ? data.conflicts : null;
@@ -1137,6 +1829,7 @@ async function sync() {
     persist();
     const same = !wasDemo && current ? items.find(x => x.id === current.id && !x.mastered) : null;
     if (same) show(same); else next();
+    refreshLib();
     toast(data.key ? `Đã thiết lập Sheet, mã bí mật là ${data.key}. Xem lại trong ⚙.`
       : outdated ? 'Script chưa được cập nhật nên chưa nhận thay đổi từ app. Thay đổi vẫn lưu trong máy.'
       : lost.length === 1 && lost[0] ? `Bản sửa “${lost[0]}” không được ghi vì từ này vừa đổi trong Sheet.`
@@ -1200,6 +1893,12 @@ function init() {
   $term = $('inTerm'); $phonetic = $('inPhonetic'); $tags = $('tags'); $typeIn = $('inType'); $sugg = $('sugg');
   $meaning = $('inMeaning'); $example = $('inExample'); $addSave = $('btnAddSave');
   $addDel = $('btnAddDel'); $del = $('dlgDel'); $delTitle = $('delTitle'); $delText = $('delText');
+  $lib = $('dlgLib'); $tabWords = $('tabWords'); $tabStats = $('tabStats'); $paneWords = $('paneWords');
+  $paneStats = $('paneStats'); $find = $('inFind'); $sort = $('inSort'); $filt = $('filt'); $words = $('words');
+  $wordsBox = $('wordsBox'); $wordsNone = $('wordsNone'); $units = $('units'); $statsBox = $('statsBox');
+  $statsBody = $('statsBody');
+  $view = $('dlgView'); $viewCard = $('viewCard'); $viewPos = $('viewPos'); $viewHint = $('viewHint');
+  $prev = $('btnPrev'); $nextWord = $('btnNextWord');
   if (SHARED_URL) {
     $('lblUrl').textContent = 'Link Apps Script riêng (không bắt buộc)';
     $url.placeholder = 'Bỏ trống để dùng script chung';
@@ -1217,6 +1916,7 @@ function init() {
   if (!Array.isArray(types)) types = [];
   settings = Object.assign({ sheet: '', key: '', url: '' }, load(KEYS.settings, {}));
   lastSync = load(KEYS.lastSync, '');
+  loadLog();
   if (!items.length && !lastSync) {
     items = DEMO.map(x => Object.assign({}, x));
     demo = true;
@@ -1295,8 +1995,90 @@ function init() {
       if (typeName($typeIn.value)) pickType($typeIn.value); else $meaning.focus();
     }
   });
+  // Tất cả từ và Thống kê. Chạm số thẻ ở thanh trên là mở Thống kê; lúc còn thẻ mẫu thì mở cài đặt để kết nối Sheet
+  $('btnLib').addEventListener('click', () => openLib('words'));
+  $stats.addEventListener('click', () => { if (demo) openSettings(); else openLib('stats'); });
+  $('btnLibClose').addEventListener('click', () => $lib.close());
+  $tabWords.addEventListener('click', () => showTab('words'));
+  $tabStats.addEventListener('click', () => showTab('stats'));
+  $('tabs').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const words = !$paneWords.hidden;
+    showTab(words ? 'stats' : 'words');
+    (words ? $tabStats : $tabWords).focus();
+  });
+  $find.addEventListener('input', () => renderWords());
+  $sort.addEventListener('change', () => { libSort = $sort.value; renderWords(); });
+  $filt.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b) { libFilter = b.dataset.f; renderWords(); }
+  });
+  $words.addEventListener('click', e => {
+    const b = e.target.closest('.row');
+    if (b) openView(Number(b.dataset.i));
+  });
+  $wordsBox.addEventListener('scroll', () => {
+    if ($wordsBox.scrollTop + $wordsBox.clientHeight > $wordsBox.scrollHeight - 800) moreWords();
+  }, { passive: true });
+  $units.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || b.dataset.u === statUnit) return;
+    statUnit = b.dataset.u;
+    statSel = -1;
+    renderStats();
+  });
+  $statsBody.addEventListener('click', e => {
+    const c = e.target.closest('.col');
+    if (c) pickPeriod(c, Number(c.dataset.i), document.activeElement === c);
+  });
+  // Rê chuột trên máy tính cũng chọn cột, như chạm trên điện thoại
+  $statsBody.addEventListener('pointerover', e => {
+    const c = e.pointerType === 'mouse' && e.target.closest('.col');
+    if (c && c.getAttribute('aria-pressed') !== 'true') pickPeriod(c, Number(c.dataset.i), false);
+  });
+  $statsBody.addEventListener('keydown', e => {
+    const c = e.target.closest('.col');
+    if (!c) return;
+    const i = Number(c.dataset.i), n = SPAN[statUnit];
+    const to = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: n - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    if (to >= 0 && to < n) pickPeriod(c, to, true);
+  });
+  $statsBody.addEventListener('toggle', e => { statTable = e.target.open; }, true);
+  // Xem một từ
+  $('btnViewBack').addEventListener('click', () => $view.close());
+  $prev.addEventListener('click', () => viewStep(-1));
+  $nextWord.addEventListener('click', () => viewStep(1));
+  $viewCard.addEventListener('click', e => {
+    const it = !viewBusy && e.target.closest('.edit') && viewItem();
+    if (it) openAdd(it);
+  });
+  $viewCard.addEventListener('pointerdown', onViewDown);
+  $viewCard.addEventListener('pointermove', onViewMove);
+  $viewCard.addEventListener('pointerup', onViewUp);
+  $viewCard.addEventListener('pointercancel', onViewUp);
+  // Quay lại danh sách: cuộn tới từ vừa xem
+  $view.addEventListener('close', () => {
+    const i = libList.findIndex(x => x.id === viewIds[viewAt]);
+    if (!$lib.open || i === -1) return;
+    moreWords(i + 1);
+    const row = $words.children[i];
+    if (!row) return;
+    row.scrollIntoView({ block: 'nearest' });
+    row.firstElementChild.focus({ preventScroll: true });
+  });
+
+  // Phím ← →: đổi thẻ lúc học, sang từ trước/sau lúc xem một từ. Đang mở bảng khác thì để phím cho bảng đó
   document.addEventListener('keydown', e => {
-    if ($dlg.open || $add.open) return;
+    const top = topDialog();
+    if (top === $view) {
+      if (e.key === 'ArrowRight') viewStep(1);
+      else if (e.key === 'ArrowLeft') viewStep(-1);
+      return;
+    }
+    if (top) return;
     if (e.key === 'ArrowRight') swipe(1);
     else if (e.key === 'ArrowLeft') swipe(-1);
   });

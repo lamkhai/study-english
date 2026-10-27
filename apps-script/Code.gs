@@ -4,30 +4,36 @@
  * Có hai cách dùng (xem README):
  * - Script chung: người quản lý app deploy bằng Gmail bot, người dùng chia sẻ Sheet cho bot.
  * - Tự dựng: trong Sheet mở Extensions → Apps Script, xoá code mẫu, dán toàn bộ file này rồi Deploy thành Web app.
- * Lần đồng bộ đầu tiên, script tự tạo tab english (từ vựng), tab types (loại từ) và tab config (mã bí mật). Ba tab
- * này mang thẻ ẩn (developer metadata), nên script nhận ra chúng kể cả khi bị đổi tên, và không bao giờ đọc hay sửa
- * tab khác của bạn.
+ * Lần đồng bộ đầu tiên, script tự tạo tab english (từ vựng), tab types (loại từ), tab log (lượt xem mỗi ngày) và tab
+ * config (mã bí mật). Bốn tab này mang thẻ ẩn (developer metadata), nên script nhận ra chúng kể cả khi bị đổi tên, và
+ * không bao giờ đọc hay sửa tab khác của bạn.
  * Code không chứa mã bí mật nào, dán bản mới đè lên bản cũ là xong.
  */
 
 // ===== Cấu hình =====
 const WORDS_TAB = 'english';  // tên tab từ vựng khi tạo; trùng tên tab có dữ liệu thì thành english2, english3…
 const TYPES_TAB = 'types';    // tên tab loại từ khi tạo; trùng thì thành types2…
+const LOG_TAB = 'log';        // tên tab lượt xem khi tạo; trùng thì thành log2…
 const CONFIG_TAB = 'config';  // tên tab chứa mã khi tạo (A1 ghi "secret", B1 ghi mã); trùng thì thành config2…
 const MIN_SECRET = 8;         // mã ngắn hơn thì không nhận, cho khó đoán
 // ====================
 
-// Thẻ ẩn đánh dấu tab của app, giá trị là 'words', 'types' hoặc 'config'
+// Thẻ ẩn đánh dấu tab của app, giá trị là 'words', 'types', 'log' hoặc 'config'
 const TAG = 'tu-vung';
 // Năm cột bạn nhập; từ thêm trong app cũng được ghi vào đây
 const INPUT_COLUMNS = ['term', 'phonetic', 'meaning', 'example', 'type'];
 // Bốn cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
 const EDIT_COLUMNS = ['phonetic', 'meaning', 'example', 'type'];
-// Ba cột do app tự quản lý, bạn không cần nhập
-const AUTO_COLUMNS = ['last_seen', 'mastered', 'id'];
+// Bốn cột do app tự quản lý, bạn không cần nhập. Sheet dựng từ bản trước thì cột added được thêm vào cuối.
+const AUTO_COLUMNS = ['added', 'last_seen', 'mastered', 'id'];
 // Hai cột của tab loại từ: tên loại, và chữ viết tắt đặt trước nghĩa
 const TYPE_COLUMNS = ['type', 'abbr'];
+// Ba cột của tab lượt xem: ngày, số lượt xem thẻ trong ngày đó, và máy đã xem
+const LOG_COLUMNS = ['date', 'views', 'device'];
 const PHONETIC_NOTE = 'Phiên âm, app hiện đúng như bạn gõ, ví dụ /rʌn/. Bỏ trống cũng được.';
+const ADDED_NOTE = 'Ngày thêm từ, script tự ghi. Từ nhập thẳng vào Sheet thì tính từ lần đồng bộ kế tiếp. '
+  + 'Từ đã có trước khi có cột này thì để trống.';
+const DAY = /^\d{4}-\d{2}-\d{2}$/;  // ngày app gửi lên, dạng 2026-10-27
 
 /** Mở link /exec trên trình duyệt để kiểm tra script đã chạy. */
 function doGet() {
@@ -35,8 +41,8 @@ function doGet() {
 }
 
 /**
- * App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới, bản sửa và từ đã xoá, ghi vào Sheet, trả về toàn bộ thẻ
- * cùng danh sách loại từ.
+ * App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới, bản sửa, từ đã xoá và lượt xem, ghi vào Sheet, trả về
+ * toàn bộ thẻ cùng danh sách loại từ và lượt xem mỗi ngày.
  */
 function doPost(e) {
   let body;
@@ -89,10 +95,11 @@ function doPost(e) {
       }
       if (!now) created = key || newCode_();
     }
-    // Tab từ vựng làm trước, để tab trống duy nhất của Sheet mới thành tab english; tab loại từ nằm ngay sau nó.
-    // Lỡ xoá tab từ vựng hay tab loại từ thì đến đây cũng được tạo lại.
+    // Tab từ vựng làm trước, để tab trống duy nhất của Sheet mới thành tab english; tab loại từ nằm ngay sau nó, rồi
+    // tới tab lượt xem. Lỡ xoá tab nào trong ba tab này thì đến đây cũng được tạo lại.
     words = tagged_(ss, 'words') || makeWords_(ss);
     const types = tagged_(ss, 'types') || makeTypes_(ss, words);
+    const log = tagged_(ss, 'log') || makeLog_(ss, types);
     if (created) writeCode_(config || makeConfig_(ss), created);
 
     const changes = Array.isArray(body.changes) ? body.changes : [];
@@ -100,9 +107,9 @@ function doPost(e) {
     const edits = Array.isArray(body.edits) ? body.edits : [];
     const deletes = Array.isArray(body.deletes) ? body.deletes : [];
     const out = sync_(words, changes, adds, edits, deletes);
-    // Có trường types là app biết script này đã nhận phiên âm và loại từ
-    const res = { ok: true, items: out.items, types: syncTypes_(types, out.items), conflicts: out.conflicts,
-      deleted: out.deleted };
+    // Có trường types là app biết script này đã nhận phiên âm và loại từ. Có trường log là đã ghi ngày thêm và lượt xem
+    const res = { ok: true, items: out.items, types: syncTypes_(types, out.items),
+      log: syncLog_(log, body.device, body.views), conflicts: out.conflicts, deleted: out.deleted };
     if (created) res.key = created;
     SpreadsheetApp.flush(); // ghi hết vào Sheet trước khi nhả khoá
     return json_(res);
@@ -135,7 +142,8 @@ function sync_(sheet, changes, adds, edits, deletes) {
     if (header.indexOf(name) !== -1) return;
     header.push(name);
     if (header.length > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
-    sheet.getRange(1, header.length).setValue(name);
+    const cell = sheet.getRange(1, header.length).setValue(name);
+    if (name === 'added') cell.setNote(ADDED_NOTE);
   });
   const col = {};
   INPUT_COLUMNS.concat(AUTO_COLUMNS).forEach(name => {
@@ -145,13 +153,18 @@ function sync_(sheet, changes, adds, edits, deletes) {
   const n = sheet.getLastRow() - 1;
   const rows = n > 0 ? sheet.getRange(2, 1, n, header.length).getValues() : [];
   const hasTerm = r => text_(r[col.term]) !== '';
+  const stamp = new Date();                // lúc đồng bộ, làm ngày thêm cho dòng mới
 
-  // 2. Gắn id cho dòng mới, và cho dòng copy bị trùng id
+  // 2. Gắn id cho dòng mới, và cho dòng copy bị trùng id. Dòng mới nhập thẳng vào Sheet thì lấy lúc này làm ngày thêm;
+  //    dòng đã có id mà chưa có ngày thêm (từ có trước khi có cột added) thì để trống.
   const byId = {};
   rows.forEach(r => {
     if (!hasTerm(r)) return;
     let id = text_(r[col.id]);
-    if (!id || byId[id]) id = Utilities.getUuid().slice(0, 8);
+    if (!id || byId[id]) {
+      id = Utilities.getUuid().slice(0, 8);
+      if (!toDate_(r[col.added])) r[col.added] = stamp;
+    }
     r[col.id] = id;
     byId[id] = r;
     if (r[col.mastered] === '') r[col.mastered] = false;
@@ -166,6 +179,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
     const r = header.map(() => '');
     INPUT_COLUMNS.forEach(name => { r[col[name]] = text_(a[name]); });
     r[col.id] = id;
+    r[col.added] = toDate_(a.added) || stamp;   // app cũ không gửi ngày thêm thì lấy lúc đồng bộ
     r[col.last_seen] = toDate_(a.lastSeen) || '';
     r[col.mastered] = a.mastered === true;
     byId[id] = r;
@@ -214,17 +228,20 @@ function sync_(sheet, changes, adds, edits, deletes) {
     deleted.push(id);
   });
 
-  // 6. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi
+  // 6. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi. Ngày thêm chỉ ghi vào ô
+  //    còn trống: app gửi lại ngày của từ đã thêm lúc script còn là bản cũ.
   changes.forEach(ch => {
-    const r = byId[text_(ch.id)];
+    const r = byId[text_(ch && ch.id)];
     if (!r) return;
     const seen = toDate_(ch.lastSeen);
     const old = toDate_(r[col.last_seen]);
     if (seen && (!old || seen > old)) r[col.last_seen] = seen;
     if (typeof ch.mastered === 'boolean') r[col.mastered] = ch.mastered;
+    const added = toDate_(ch.added);
+    if (added && !toDate_(r[col.added])) r[col.added] = added;
   });
 
-  // 7. Dòng của từ mới thì ghi cả 5 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 3 cột
+  // 7. Dòng của từ mới thì ghi cả 5 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 4 cột
   //    tự quản lý, không đụng tới các cột bạn nhập. Id và chữ ghi dạng chữ, để "0012ab34" hay "24/7" không bị
   //    đổi thành số hay ngày tháng. Cuối cùng mới xoá dòng của từ đã xoá.
   if (all.length) {
@@ -244,6 +261,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
     AUTO_COLUMNS.forEach(name => {
       sheet.getRange(2, col[name] + 1, all.length, 1).setValues(all.map(r => [r[col[name]]]));
     });
+    sheet.getRange(2, col.added + 1, all.length, 1).setNumberFormat('dd/mm/yyyy hh:mm');
     sheet.getRange(2, col.last_seen + 1, all.length, 1).setNumberFormat('dd/mm/yyyy hh:mm');
     sheet.getRange(2, col.mastered + 1, all.length, 1)
       .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
@@ -264,6 +282,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
     meaning: col.meaning === -1 ? '' : text_(r[col.meaning]),
     example: col.example === -1 ? '' : text_(r[col.example]),
     type: col.type === -1 ? '' : text_(r[col.type]),
+    added: toIso_(r[col.added]),
     lastSeen: toIso_(r[col.last_seen]),
     mastered: r[col.mastered] === true || text_(r[col.mastered]).toUpperCase() === 'TRUE'
   }));
@@ -319,7 +338,95 @@ function syncTypes_(sheet, items) {
   return list;
 }
 
-/** Tab mang thẻ ẩn của app (role là 'words', 'types' hoặc 'config'); người dùng đổi tên tab thì vẫn nhận ra. */
+/**
+ * Tab lượt xem: mỗi dòng là số lượt xem thẻ của một máy trong một ngày. App gửi tổng số lượt của từng ngày chứ không
+ * gửi số cộng thêm, và script giữ số lớn hơn, nên gửi lại mấy lần cũng không bị đếm trùng. Trả về số lượt theo ngày
+ * của chính máy đó (mine) và của các máy khác cộng lại (others).
+ */
+function syncLog_(sheet, device, views) {
+  if (sheet.getLastColumn() === 0) {
+    sheet.getRange(1, 1, 1, LOG_COLUMNS.length).setValues([LOG_COLUMNS]);
+  }
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(h => text_(h).toLowerCase());
+  LOG_COLUMNS.forEach(name => {
+    if (header.indexOf(name) !== -1) return;
+    header.push(name);
+    if (header.length > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
+    sheet.getRange(1, header.length).setValue(name);
+  });
+  const cd = header.indexOf('date');
+  const cv = header.indexOf('views');
+  const cm = header.indexOf('device');
+  // Ngày ghi trong Sheet theo múi giờ của Sheet, đọc ra cũng theo múi giờ đó, để không lệch sang ngày bên cạnh
+  const tz = sheet.getParent().getSpreadsheetTimeZone();
+  const dayOf = v => v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : text_(v);
+  const n = sheet.getLastRow() - 1;
+  const rows = n > 0 ? sheet.getRange(2, 1, n, header.length).getValues() : [];
+
+  // 1. Ghi số lượt của máy này: ngày đã có dòng thì giữ số lớn hơn, ngày chưa có thì thêm dòng ở cuối tab
+  const me = /^[\w-]{1,40}$/.test(text_(device)) ? text_(device) : '';
+  const own = {};
+  if (me) rows.forEach((r, i) => { if (text_(r[cm]) === me) own[dayOf(r[cd])] = i; });
+  const sent = me && views && typeof views === 'object' && !Array.isArray(views) ? views : {};
+  const fresh = [];
+  Object.keys(sent).forEach(day => {
+    const v = Math.floor(Number(sent[day]));
+    if (!(v > 0) || !isDay_(day, tz)) return;
+    if (Object.prototype.hasOwnProperty.call(own, day)) {
+      const r = rows[own[day]];
+      if (v > (Number(r[cv]) || 0)) {
+        r[cv] = v;
+        sheet.getRange(own[day] + 2, cv + 1).setValue(v);
+      }
+      return;
+    }
+    const r = header.map(() => '');
+    r[cd] = Utilities.parseDate(day, tz, 'yyyy-MM-dd');
+    r[cv] = v;
+    r[cm] = me;
+    fresh.push(r);
+  });
+  if (fresh.length) {
+    const start = rows.length + 2;
+    const short = start + fresh.length - 1 - sheet.getMaxRows();
+    if (short > 0) sheet.insertRowsAfter(sheet.getMaxRows(), short);
+    sheet.getRange(start, cd + 1, fresh.length, 1).setNumberFormat('dd/mm/yyyy');
+    sheet.getRange(start, cm + 1, fresh.length, 1).setNumberFormat('@');
+    sheet.getRange(start, 1, fresh.length, header.length).setValues(fresh);
+  }
+
+  // 2. Cộng theo ngày. Một máy lỡ có hai dòng cùng ngày (dòng bị copy) thì chỉ lấy dòng lớn hơn.
+  const best = {};
+  rows.concat(fresh).forEach(r => {
+    const day = dayOf(r[cd]);
+    const v = Math.floor(Number(r[cv]));
+    if (!DAY.test(day) || !(v > 0)) return;
+    const k = text_(r[cm]) + '|' + day;
+    best[k] = Math.max(best[k] || 0, v);
+  });
+  const mine = {};
+  const others = {};
+  Object.keys(best).forEach(k => {
+    const at = k.lastIndexOf('|');
+    const bag = me && k.slice(0, at) === me ? mine : others;
+    const day = k.slice(at + 1);
+    bag[day] = (bag[day] || 0) + best[k];
+  });
+  return { mine, others };
+}
+
+/** Chuỗi dạng 2026-10-27 là một ngày có thật. */
+function isDay_(s, tz) {
+  if (!DAY.test(s)) return false;
+  try {
+    return Utilities.formatDate(Utilities.parseDate(s, tz, 'yyyy-MM-dd'), tz, 'yyyy-MM-dd') === s;
+  } catch (err) {
+    return false;
+  }
+}
+
+/** Tab mang thẻ ẩn của app (role là 'words', 'types', 'log' hoặc 'config'); người dùng đổi tên tab thì vẫn nhận ra. */
 function tagged_(ss, role) {
   return ss.getSheets().find(s => roleOf_(s) === role) || null;
 }
@@ -353,6 +460,7 @@ function makeWords_(ss) {
   note('meaning', 'Từ có nhiều loại: mỗi nghĩa một dòng, mở đầu bằng loại viết tắt như (n), (v). Xuống dòng trong ô bằng Ctrl+Enter.');
   note('example', 'Bọc *cụm từ* để in đậm. Nhiều ví dụ thì xuống dòng trong ô bằng Ctrl+Enter.');
   note('type', 'Loại từ như noun, verb, adjective, hoặc grammar cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: noun, verb. Loại mới được thêm vào tab types để app gợi ý. Bỏ trống cũng được.');
+  note('added', ADDED_NOTE);
   return sheet;
 }
 
@@ -364,6 +472,16 @@ function makeTypes_(ss, words) {
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1).setNote('Các loại app gợi ý khi thêm từ. Loại nào dùng ở tab từ vựng mà chưa có ở đây thì script tự thêm vào cuối. Loại không dùng nữa thì xoá dòng đó.');
   sheet.getRange(1, 2).setNote('Viết tắt đặt trước nghĩa khi một từ có nhiều loại, ví dụ (n) cuộc chạy. Bỏ trống thì noun là n, verb là v, adjective là adj, adverb là adv…, loại khác dùng nguyên tên.');
+  return sheet;
+}
+
+/** Tạo tab lượt xem ngay sau tab loại từ. */
+function makeLog_(ss, types) {
+  const sheet = newTab_(ss, LOG_TAB, types.getIndex());
+  tag_(sheet, 'log');
+  sheet.getRange(1, 1, 1, LOG_COLUMNS.length).setValues([LOG_COLUMNS]).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1).setNote('App tự ghi tab này. Mỗi dòng là số lượt xem thẻ của một máy (cột device) trong một ngày. Cộng các dòng cùng ngày là số lượt xem của ngày đó.');
   return sheet;
 }
 

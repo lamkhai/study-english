@@ -22,15 +22,16 @@ Thiết lập lần đầu gồm 3 bước dưới đây.
 
 Dùng một file Google Sheet mới hay một file có sẵn đều được. Nên dùng file riêng cho từ vựng: nếu dùng script chung, tài khoản bot sẽ có quyền với cả file.
 
-Chưa cần nhập gì. Ở lần đồng bộ đầu tiên (Bước 3), script tự tạo ba tab:
+Chưa cần nhập gì. Ở lần đồng bộ đầu tiên (Bước 3), script tự tạo bốn tab:
 - `english`: tab từ vựng, có sẵn hàng tiêu đề.
 - `types`: các loại từ để app gợi ý khi bạn thêm từ.
+- `log`: số lượt xem thẻ mỗi ngày, cho phần Thống kê.
 - `config`: chứa mã bí mật ở ô B1. Ai có cả link Sheet lẫn mã này là đọc và sửa được từ vựng qua script.
 
-Script chỉ làm việc với ba tab này, không bao giờ đọc hay sửa tab nào khác của bạn.
-- Sheet mới thì tab trống có sẵn được đổi tên thành `english`, nên file chỉ có đúng ba tab.
-- Nếu đã có tab tên `english`, `types` hay `config` chứa dữ liệu, script tạo tab mới tên `english2`, `types2`, `config2`… Tab trống trùng tên thì được dùng luôn.
-- Script nhận ra ba tab của mình bằng một thẻ ẩn, nên bạn đổi tên tab thoải mái.
+Script chỉ làm việc với bốn tab này, không bao giờ đọc hay sửa tab nào khác của bạn.
+- Sheet mới thì tab trống có sẵn được đổi tên thành `english`, nên file chỉ có đúng bốn tab.
+- Nếu đã có tab tên `english`, `types`, `log` hay `config` chứa dữ liệu, script tạo tab mới tên `english2`, `types2`, `log2`, `config2`… Tab trống trùng tên thì được dùng luôn.
+- Script nhận ra bốn tab của mình bằng một thẻ ẩn, nên bạn đổi tên tab thoải mái.
 - Muốn học những từ đã có ở tab khác, hãy copy chúng sang tab `english`.
 
 ### Bước 2. Cho script đọc Sheet
@@ -91,9 +92,13 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
   - Loại không dùng nữa thì xoá dòng đó. Loại vẫn còn từ dùng thì sẽ được thêm lại.
   - Cột `abbr` là chữ viết tắt đặt trước nghĩa, ví dụ `n` trong `(n) cuộc chạy`. Bỏ trống thì `noun` là `n`, `verb` là `v`, `adjective` là `adj`, `adverb` là `adv`…; loại khác dùng nguyên tên.
   - Lỡ xoá tab `types` thì lần đồng bộ sau script tạo lại, với các loại đang dùng.
-- Ba cột `last_seen`, `mastered`, `id` do script tự tạo và quản lý.
+- Bốn cột `added`, `last_seen`, `mastered`, `id` do script tự tạo và quản lý.
+- Cột `added` là ngày thêm từ, dùng cho phần Thống kê.
+  - Từ thêm trong app thì lấy lúc bấm **Thêm**. Từ nhập thẳng vào Sheet thì lấy lúc đồng bộ kế tiếp.
+  - Sheet dựng từ bản trước thì cột này được thêm vào cuối, và để trống ở các từ đã có, vì không ai biết chúng được thêm ngày nào. Muốn các từ đó vào thống kê thì tự điền ngày tháng vào ô.
 - Cột `mastered` là ô tick. Muốn học lại một từ đã đánh dấu nắm rõ, bỏ tick rồi đồng bộ.
 - Cột `id` giúp app nhận ra từng dòng kể cả khi bạn sửa chữ hay sắp xếp lại Sheet. Đừng sửa cột này.
+- Tab `log` do script tự ghi, bạn không cần sửa. Mỗi dòng là số lượt xem thẻ của một máy (cột `device`) trong một ngày, nên dùng hai máy thì một ngày có hai dòng.
 
 ## Dùng hằng ngày
 
@@ -115,6 +120,23 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Xoá từ: trong bảng **Sửa từ** bấm **Xoá**, rồi xác nhận. Thẻ mất khỏi bộ thẻ ngay, và dòng của từ đó trong Sheet bị xoá ở lần đồng bộ kế tiếp. Nếu trước đó chữ của từ (cột `term`) đã bị sửa thẳng trong Sheet, app không xoá dòng đó để tránh xoá nhầm, và báo lại.
 - Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Sửa chữ của chính từ đó (cột `term`) thì làm trong Sheet.
 
+### Tất cả từ
+
+Bấm nút ☰ ở thanh trên để xem mọi từ, kể cả từ đã nắm rõ.
+- Gõ vào ô tìm để tìm theo từ hoặc nghĩa, không cần gõ dấu: `bu dap` vẫn ra `bù đắp`.
+- Lọc **Đang học** hay **Đã nắm rõ**, và xếp theo **Mới thêm**, **A → Z** hoặc **Lâu chưa xem**.
+- Chạm một từ để xem cả thẻ. Vuốt, bấm **Từ trước** / **Từ sau**, hoặc phím ← → để đi qua các từ trong danh sách. Nút ✎ trên thẻ để sửa từ đó.
+- Xem ở đây không ghi `last seen` và không tính lượt xem, nên không làm đổi thứ tự thẻ khi học.
+
+### Thống kê
+
+Mở tab **Thống kê** cạnh **Tất cả từ**, hoặc chạm vào số thẻ ở góc trái thanh trên.
+- Hai biểu đồ: **Từ mới** (số từ thêm vào) và **Lượt xem** (số thẻ đã học), xem **Theo ngày** (14 ngày gần nhất), **Theo tuần** (12 tuần, tuần bắt đầu từ thứ Hai) hoặc **Theo tháng** (12 tháng).
+- Số to là của hôm nay, tuần này hay tháng này. Chạm một cột để xem số của khoảng đó. **Xem dạng bảng** liệt kê mọi con số.
+- Từ mới đếm theo cột `added`. Từ đã xoá thì không tính. Những từ đã có trước khi có cột `added` thì không vào biểu đồ, app ghi rõ có bao nhiêu từ như vậy.
+- Mỗi lần vuốt sang thẻ khác, bấm **Thẻ tiếp** hay **Đã nắm rõ** là một lượt xem. Lượt xem bắt đầu được đếm từ khi cập nhật app, và được gửi vào tab `log` khi đồng bộ.
+- Dùng nhiều máy chung một Sheet thì Thống kê cộng lượt xem của mọi máy. Số của máy khác được cập nhật mỗi lần bạn đồng bộ.
+
 ## Khi gặp lỗi
 
 | App báo | Cách xử lý |
@@ -133,6 +155,7 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 | Script chưa được cập nhật nên chưa nhận thay đổi từ app… | Script đang chạy là bản cũ, chưa nhận được từ thêm, bản sửa, phiên âm hay lệnh xoá từ app. Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
 | Bản sửa “…” không được ghi vì từ này vừa đổi trong Sheet | Ô đó đã được sửa thẳng trong Sheet trước khi app kịp đồng bộ, nên app giữ bản trong Sheet. Thẻ trong app giờ là bản trong Sheet; muốn sửa tiếp thì bấm ✎. |
 | “…” không xoá được vì từ này vừa đổi trong Sheet | Chữ của từ (cột `term`) đã bị sửa thẳng trong Sheet trước khi app kịp đồng bộ, nên app không xoá để tránh xoá nhầm. Thẻ đã hiện lại; vẫn muốn xoá thì bấm ✎ rồi **Xoá** lần nữa. |
+| Thống kê ghi: Script chưa được cập nhật nên lượt xem mới chỉ lưu trong máy này | Script đang chạy là bản cũ, chưa ghi được lượt xem và ngày thêm. Cập nhật script như dòng "Script chưa được cập nhật…" ở trên. Lượt xem và ngày thêm vẫn nằm trong máy, script cập nhật xong thì bấm ↻ (hai lần) để gửi hết lên. |
 | Script chung đang trục trặc… | Báo người quản lý app. Trong lúc chờ vẫn học offline bình thường. |
 | Không gọi được script | Kiểm tra mạng, hoặc dán lại link trong ⚙. |
 
@@ -193,5 +216,7 @@ Script đang dùng được ghi ở mục **Bản đang chạy**. Nếu đổi b
 5. Thử với một Sheet trống: chia sẻ cho bot, dán link vào app, để trống ô mã rồi đồng bộ.
 
 Sửa `Code.gs` sau này thì dán lại vào project của bot và deploy **New version** (xem lưu ý ở Bước 2). Mọi người dùng chạy bản mới ngay, nên thử kỹ trước khi deploy. Lỗi khi chạy xem ở mục **Executions** trong Apps Script.
+
+> Bản có **Tất cả từ** và **Thống kê** cần `Code.gs` mới (cột `added`, tab `log`). Nên deploy script trước rồi mới push app. Push app trước cũng không mất gì: lượt xem và ngày thêm nằm chờ trong máy, script cập nhật xong thì được gửi lên.
 
 > Mọi người dùng đi chung một tài khoản bot: chung hạn mức Apps Script của Google, và các lần đồng bộ chạy lần lượt. Nhóm vài chục người thì ổn.
