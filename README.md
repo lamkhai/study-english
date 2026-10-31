@@ -79,9 +79,9 @@ Sau đó mở app **từ icon vừa tạo**, lúc đang có mạng → bấm ⚙
 
 Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ hoặc một cấu trúc ngữ pháp:
 
-| term | phonetic | meaning | example | type | synonyms |
-|---|---|---|---|---|---|
-| in conjunction with | /ɪn kənˈdʒʌŋkʃən wɪð/ | kết hợp với | `hooks, states, props, Redux *in conjunction with* React components` | phrase | together with |
+| term | phonetic | meaning | example | type | synonyms | antonyms | related |
+|---|---|---|---|---|---|---|---|
+| inevitable | /ɪnˈevɪtəbl/ | không thể tránh khỏi | `Change is *inevitable*.` | adjective | unavoidable | avoidable | inevitably, inevitability |
 
 - Mỗi từ một dòng. App nhận ra từng từ theo chữ ở cột `term`, không phân biệt hoa thường.
   - Hai dòng cùng một từ thì app chỉ dùng dòng trên cùng, và mỗi lần đồng bộ đều nhắc bạn gộp lại.
@@ -95,8 +95,12 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
   - Loại không dùng nữa thì xoá dòng đó. Loại vẫn còn từ dùng thì sẽ được thêm lại.
   - Cột `abbr` là chữ viết tắt đặt trước nghĩa, ví dụ `n` trong `(n) cuộc chạy`. Bỏ trống thì `noun` là `n`, `verb` là `v`, `adjective` là `adj`, `adverb` là `adv`…; loại khác dùng nguyên tên.
   - Lỡ xoá tab `types` thì lần đồng bộ sau script tạo lại, với các loại đang dùng.
-- Cột `synonyms` ghi từ đồng nghĩa, cách nhau bằng dấu phẩy: `unavoidable, inescapable`. Chỉ cần ghi ở một từ: dòng `inevitable` ghi `unavoidable` thì thẻ `unavoidable` trong app cũng hiện `inevitable`. Bỏ trống cũng được.
-- Sheet dựng từ bản trước: lần đồng bộ đầu tiên với script mới xoá cột `id` (không cần nữa) và chèn cột `synonyms` ngay sau cột `type`.
+- Ba cột từ liên kết, mỗi ô ghi các từ cách nhau bằng dấu phẩy. Bỏ trống cũng được.
+  - `synonyms`: từ đồng nghĩa, như `unavoidable, inescapable`.
+  - `antonyms`: từ trái nghĩa, như `avoidable`.
+  - `related`: từ liên quan, như các từ cùng họ: dòng `study` ghi `student, studious`.
+  - Chỉ cần ghi ở một từ: dòng `inevitable` ghi `unavoidable` ở cột `synonyms` thì thẻ `unavoidable` trong app cũng hiện `inevitable`.
+- Sheet dựng từ bản trước: lần đồng bộ đầu tiên với script mới chèn những cột từ liên kết còn thiếu ngay sau các cột bạn nhập (thường là sau cột `type`), và xoá cột `id` nếu còn (không cần nữa).
 - Ba cột `added`, `last_seen`, `mastered` do script tự tạo và quản lý.
 - Cột `added` là ngày thêm từ, dùng cho phần Thống kê.
   - Từ thêm trong app thì lấy lúc bấm **Thêm**. Từ nhập thẳng vào Sheet thì lấy lúc đồng bộ kế tiếp.
@@ -110,19 +114,20 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Thẻ tiếp theo được chọn ngẫu nhiên, ưu tiên thẻ chưa xem hoặc lâu chưa xem. Thẻ vừa xem hầu như không lặp lại ngay.
 - Bấm **Đã nắm rõ** thì thẻ không hiện nữa. Bấm nhầm thì chọn **Hoàn tác** trên thông báo.
 - Không có mạng vẫn học bình thường. Con số trên nút ↻ là số thay đổi chưa đồng bộ.
-- Thêm từ mới: bấm **+**, gõ từ, phiên âm, loại từ, nghĩa, từ đồng nghĩa, ví dụ rồi bấm **Thêm**. Chỉ ô Từ là bắt buộc. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
+- Thêm từ mới: bấm **+**, gõ từ, phiên âm, loại từ, nghĩa, từ đồng nghĩa, từ trái nghĩa, từ liên quan, ví dụ rồi bấm **Thêm**. Chỉ ô Từ là bắt buộc. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
 - Ô **Loại từ** chọn được nhiều loại:
   - Chạm loại gợi ý bên dưới ô để chọn nhanh. Loại dùng nhiều đứng trước.
   - Gõ để lọc gợi ý. Chưa có loại đó thì bấm Enter, gõ dấu phẩy hoặc chạm **+ Thêm** để tạo loại mới.
   - Chạm × để bỏ một loại.
   - Loại mới được lưu cùng từ khi bấm **Thêm** hay **Cập nhật**, rồi vào tab `types` ở lần đồng bộ kế tiếp.
-- Mỗi từ chỉ có một thẻ. Gõ một từ đã có (không phân biệt hoa thường) thì bảng chuyển sang **Sửa từ**, nạp sẵn phiên âm, loại từ, nghĩa, từ đồng nghĩa, ví dụ của thẻ đó; sửa xong bấm **Cập nhật**. Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
+- Mỗi từ chỉ có một thẻ. Gõ một từ đã có (không phân biệt hoa thường) thì bảng chuyển sang **Sửa từ**, nạp sẵn mọi ô của thẻ đó; sửa xong bấm **Cập nhật**. Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
 - Chọn loại từ thì app tự gắn loại viết tắt vào ô Nghĩa, kể cả khi chỉ chọn một loại: `(n) cuộc chạy`.
   - Từ có nhiều loại: chọn đủ các loại, app gắn `(n)`, `(v)`… mỗi loại một dòng để bạn ghi mỗi nghĩa một dòng.
   - Chỉ còn một loại mà bỏ đi thì app gỡ `(n)` của loại đó khỏi ô Nghĩa, nghĩa đã gõ vẫn giữ.
-- Ô **Từ đồng nghĩa** dùng giống ô Loại từ: gõ từ rồi bấm Enter hoặc gõ dấu phẩy, chạm × để bỏ. Gõ vài chữ thì app gợi ý các từ đã có trong bộ thẻ. Từ đồng nghĩa hiện trên thẻ, ngay dưới nghĩa: `syn. unavoidable`.
-  - Chỉ cần ghi ở một bên: `inevitable` ghi `unavoidable` thì thẻ `unavoidable` cũng hiện `inevitable`, kể cả khi bạn thêm `unavoidable` sau. Lúc thêm `unavoidable`, ô Từ đồng nghĩa đã điền sẵn `inevitable`.
-  - Bỏ một từ đồng nghĩa ở bên nào thì cả hai thẻ đều thôi hiện nhau.
+- Ba ô **Từ đồng nghĩa**, **Từ trái nghĩa** và **Từ liên quan** dùng giống ô Loại từ: gõ từ rồi bấm Enter hoặc gõ dấu phẩy, chạm × để bỏ. Gõ vài chữ thì app gợi ý các từ đã có trong bộ thẻ. Các từ này hiện trên thẻ ngay dưới nghĩa, mỗi loại một dòng: `syn.` là từ đồng nghĩa, `ant.` là từ trái nghĩa, `rel.` là từ liên quan.
+  - Từ liên quan thường là các từ cùng họ, như `study` với `student`, `studious`. Từ nào đã có trong bộ thẻ thì hiện kèm loại từ của nó: `rel. student (n), studious (adj)`.
+  - Chỉ cần ghi ở một bên: `inevitable` ghi `unavoidable` là từ đồng nghĩa thì thẻ `unavoidable` cũng hiện `inevitable`, kể cả khi bạn thêm `unavoidable` sau. Lúc thêm `unavoidable`, ô Từ đồng nghĩa đã điền sẵn `inevitable`. Từ trái nghĩa và từ liên quan cũng vậy.
+  - Bỏ một từ ở bên nào thì cả hai thẻ đều thôi hiện nhau.
 - Bản sửa được ghi vào Sheet ở lần đồng bộ kế tiếp. Nếu trong lúc đó ô ấy đã được sửa thẳng trong Sheet, app giữ bản trong Sheet và báo lại.
 - Xoá từ: trong bảng **Sửa từ** bấm **Xoá**, rồi xác nhận. Thẻ mất khỏi bộ thẻ ngay, và dòng của từ đó trong Sheet bị xoá ở lần đồng bộ kế tiếp. Dòng đã bị sửa chữ ở cột `term` thì không còn khớp từ đó nên không bị xoá.
 - Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Sửa chữ của chính từ đó (cột `term`) thì làm trong Sheet.
@@ -160,7 +165,7 @@ Mở tab **Thống kê** cạnh **Tất cả từ**, hoặc chạm vào số th�
 | Sheet báo lỗi: script đang bận… | Nhiều người đang đồng bộ cùng lúc. Đợi vài giây rồi bấm ↻. |
 | Sheet báo lỗi: không thấy cột "term"… | Hàng 1 của tab `english` thiếu tiêu đề `term`. Gõ lại tiêu đề `term` vào hàng 1. |
 | Link chưa đúng… | (Cách B) Dùng link đuôi `/exec`, quyền *Anyone*, và Deploy bản mới nhất (xem lưu ý ở Bước 2). |
-| Script chưa được cập nhật nên chưa nhận thay đổi từ app… | Script đang chạy là bản cũ (còn dùng cột `id`), không đồng bộ được với app bản này. Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
+| Script chưa được cập nhật nên chưa nhận thay đổi từ app… | Script đang chạy là bản cũ, chưa ghi được các cột app bản này cần (như `antonyms`, `related`). Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
 | Sheet báo lỗi: app đang là bản cũ… | Script đã được cập nhật nhưng máy này vẫn mở app bản cũ. Đóng hẳn app rồi mở lại lúc có mạng (có khi phải mở lại hai lần), rồi bấm ↻. Thay đổi vẫn nằm trong máy. |
 | Bản sửa “…” không được ghi vì từ này vừa đổi trong Sheet | Ô đó đã được sửa thẳng trong Sheet trước khi app kịp đồng bộ (hoặc chữ của từ ở cột `term` vừa bị đổi), nên app giữ bản trong Sheet. Thẻ trong app giờ là bản trong Sheet; muốn sửa tiếp thì bấm ✎. |
 | “…” có ở nhiều dòng trong Sheet… | Tab `english` có nhiều dòng cùng một từ (không phân biệt hoa thường), app chỉ dùng dòng trên cùng. Gộp nội dung vào một dòng, xoá các dòng còn lại rồi bấm ↻. |
@@ -225,6 +230,10 @@ Script đang dùng được ghi ở mục **Bản đang chạy**. Nếu đổi b
 
 Sửa `Code.gs` sau này thì dán lại vào project của bot và deploy **New version** (xem lưu ý ở Bước 2). Mọi người dùng chạy bản mới ngay, nên thử kỹ trước khi deploy. Lỗi khi chạy xem ở mục **Executions** trong Apps Script.
 
-> Bản bỏ cột `id` và có từ đồng nghĩa đổi cách app và script nói chuyện với nhau: app mới chỉ đồng bộ được với script mới, và ngược lại. Deploy script rồi push app ngay sau đó. Trong lúc chuyển, máy nào báo "Script chưa được cập nhật…" hay "app đang là bản cũ…" thì không mất gì: thay đổi nằm chờ trong máy, cả hai cùng là bản mới thì bấm ↻ là gửi hết lên. Lần đồng bộ đầu tiên với script mới, mỗi Sheet tự xoá cột `id` và thêm cột `synonyms`.
+> Bản có từ trái nghĩa và từ liên quan cần script mới, nên deploy script trước rồi mới push app.
+> - Script mới vẫn đồng bộ được với app bản ngay trước (bản có từ đồng nghĩa), app đó chỉ chưa hiện hai loại từ mới. App cũ hơn nữa (còn dùng cột `id`) thì bị báo "app đang là bản cũ…".
+> - App mới gặp script cũ thì báo "Script chưa được cập nhật…".
+> - Máy báo một trong hai câu trên cũng không mất gì: thay đổi nằm chờ trong máy, app và script cùng là bản mới thì bấm ↻ là gửi hết lên.
+> - Lần đồng bộ đầu tiên với script mới, mỗi Sheet tự thêm các cột còn thiếu (`antonyms`, `related`, và `synonyms` nếu Sheet từ bản cũ hơn), và xoá cột `id` nếu còn.
 
 > Mọi người dùng đi chung một tài khoản bot: chung hạn mức Apps Script của Google, và các lần đồng bộ chạy lần lượt. Nhóm vài chục người thì ổn.

@@ -20,13 +20,26 @@ const MIN_SECRET = 8;         // mã ngắn hơn thì không nhận, cho khó đ
 
 // Thẻ ẩn đánh dấu tab của app, giá trị là 'words', 'types', 'log' hoặc 'config'
 const TAG = 'tu-vung';
-// Phiên bản giao tiếp với app. Từ bản 2, app và script nhận ra từng từ theo chữ ở cột term (mỗi từ một dòng), không
-// dùng cột id nữa. App bản trước còn gửi id, nên script nhắc người dùng mở lại app để tải bản mới.
-const API = 2;
-// Sáu cột bạn nhập; từ thêm trong app cũng được ghi vào đây
-const INPUT_COLUMNS = ['term', 'phonetic', 'meaning', 'example', 'type', 'synonyms'];
-// Năm cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
-const EDIT_COLUMNS = ['phonetic', 'meaning', 'example', 'type', 'synonyms'];
+// Phiên bản giao tiếp với app. Bản 2: app và script nhận ra từng từ theo chữ ở cột term (mỗi từ một dòng), không dùng
+// cột id nữa. Bản 3: thêm cột antonyms (từ trái nghĩa) và related (từ liên quan).
+const API = 3;
+// App cũ nhất script còn nhận. App bản 2 chưa biết hai cột mới nhưng không đụng tới chúng, nên vẫn đồng bộ được.
+// App bản 1 còn tìm từ theo cột id, nên script nhắc người dùng mở lại app để tải bản mới.
+const OLDEST_APP = 2;
+// Tám cột bạn nhập; từ thêm trong app cũng được ghi vào đây
+const INPUT_COLUMNS = ['term', 'phonetic', 'meaning', 'example', 'type', 'synonyms', 'antonyms', 'related'];
+// Bảy cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
+const EDIT_COLUMNS = ['phonetic', 'meaning', 'example', 'type', 'synonyms', 'antonyms', 'related'];
+// Ba cột từ liên kết, mỗi ô ghi các từ cách nhau bằng dấu phẩy, kèm chú thích ở ô tiêu đề. Chỉ cần ghi ở một từ:
+// app hiện liên kết ở cả hai thẻ.
+const LINK_NOTES = {
+  synonyms: 'Từ đồng nghĩa, cách nhau bằng dấu phẩy: unavoidable, inescapable. Chỉ cần ghi ở một từ: '
+    + 'inevitable ghi unavoidable thì thẻ unavoidable trong app cũng hiện inevitable. Bỏ trống cũng được.',
+  antonyms: 'Từ trái nghĩa, cách nhau bằng dấu phẩy: avoidable, preventable. Chỉ cần ghi ở một từ: '
+    + 'inevitable ghi avoidable thì thẻ avoidable trong app cũng hiện inevitable. Bỏ trống cũng được.',
+  related: 'Từ liên quan, như các từ cùng họ, cách nhau bằng dấu phẩy: study ghi student, studious. '
+    + 'Chỉ cần ghi ở một từ: thẻ student trong app cũng hiện study. Bỏ trống cũng được.'
+};
 // Ba cột do app tự quản lý, bạn không cần nhập. Sheet dựng từ bản trước thì cột added được thêm vào cuối.
 const AUTO_COLUMNS = ['added', 'last_seen', 'mastered'];
 // Hai cột của tab loại từ: tên loại, và chữ viết tắt đặt trước nghĩa
@@ -34,8 +47,6 @@ const TYPE_COLUMNS = ['type', 'abbr'];
 // Ba cột của tab lượt xem: ngày, số lượt xem thẻ trong ngày đó, và máy đã xem
 const LOG_COLUMNS = ['date', 'views', 'device'];
 const PHONETIC_NOTE = 'Phiên âm, app hiện đúng như bạn gõ, ví dụ /rʌn/. Bỏ trống cũng được.';
-const SYNONYMS_NOTE = 'Từ đồng nghĩa, cách nhau bằng dấu phẩy: unavoidable, inescapable. Chỉ cần ghi ở một từ: '
-  + 'inevitable ghi unavoidable thì thẻ unavoidable trong app cũng hiện inevitable. Bỏ trống cũng được.';
 const ADDED_NOTE = 'Ngày thêm từ, script tự ghi. Từ nhập thẳng vào Sheet thì tính từ lần đồng bộ kế tiếp. '
   + 'Từ đã có trước khi có cột này thì để trống.';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;  // ngày app gửi lên, dạng 2026-10-27
@@ -57,8 +68,8 @@ function doPost(e) {
     body = null;
   }
   if (!body || typeof body !== 'object') return fail_('dữ liệu gửi lên không hợp lệ');
-  // App bản trước nhận ra từ theo cột id, mà script này đã bỏ cột đó: nhắc mở lại app để tải bản mới
-  if (!(Number(body.api) >= API)) return fail_('app đang là bản cũ, hãy đóng hẳn app rồi mở lại để cập nhật');
+  // App bản 1 nhận ra từ theo cột id, mà script này đã bỏ cột đó: nhắc mở lại app để tải bản mới
+  if (!(Number(body.api) >= OLDEST_APP)) return fail_('app đang là bản cũ, hãy đóng hẳn app rồi mở lại để cập nhật');
 
   // 1. Mở đúng Sheet theo ID app gửi lên
   const id = text_(body.sheet);
@@ -114,7 +125,7 @@ function doPost(e) {
     const edits = Array.isArray(body.edits) ? body.edits : [];
     const deletes = Array.isArray(body.deletes) ? body.deletes : [];
     const out = sync_(words, changes, adds, edits, deletes);
-    // Có trường api là app biết script này nhận ra từ theo chữ của từ và có cột synonyms
+    // Trường api cho app biết script này ghi được những cột nào (từ bản 3: antonyms và related)
     const res = { ok: true, api: API, items: out.items, types: syncTypes_(types, out.items),
       log: syncLog_(log, body.device, body.views), conflicts: out.conflicts, dupes: out.dupes };
     if (created) res.key = created;
@@ -150,13 +161,15 @@ function sync_(sheet, changes, adds, edits, deletes) {
     sheet.getRange(1, at + 1).setValue('phonetic').setNote(PHONETIC_NOTE);
     header.splice(at, 0, 'phonetic');
   }
-  // Tab dựng từ bản chưa có cột synonyms (từ đồng nghĩa): chèn ngay sau cột nhập cuối cùng, thường là cột type
-  if (header.indexOf('synonyms') === -1) {
-    const at = Math.max.apply(null, INPUT_COLUMNS.map(name => header.indexOf(name))) + 1;
+  // Tab dựng từ bản chưa có cột synonyms, antonyms hay related (từ liên kết): chèn ngay sau cột nhập cuối cùng,
+  // thường là cột type hay cột từ liên kết vừa chèn, để ba cột nằm cạnh nhau
+  Object.keys(LINK_NOTES).forEach(name => {
+    if (header.indexOf(name) !== -1) return;
+    const at = Math.max.apply(null, INPUT_COLUMNS.map(n => header.indexOf(n))) + 1;
     sheet.insertColumnsAfter(at, 1);
-    sheet.getRange(1, at + 1).setValue('synonyms').setNote(SYNONYMS_NOTE);
-    header.splice(at, 0, 'synonyms');
-  }
+    sheet.getRange(1, at + 1).setValue(name).setNote(LINK_NOTES[name]);
+    header.splice(at, 0, name);
+  });
   // Thiếu cột tự quản lý thì thêm vào cuối. Có từ mới hay bản sửa thì thêm cả cột nhập còn thiếu, để không mất chữ nào
   AUTO_COLUMNS.concat(adds.length || edits.length ? INPUT_COLUMNS : []).forEach(name => {
     if (header.indexOf(name) !== -1) return;
@@ -268,7 +281,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
     if (added && !toDate_(r[col.added])) r[col.added] = added;
   });
 
-  // 8. Dòng của từ mới thì ghi cả 6 cột nhập, ô vừa được sửa hay vừa điền thì ghi riêng ô đó. Ngoài ra chỉ ghi lại
+  // 8. Dòng của từ mới thì ghi mọi cột nhập, ô vừa được sửa hay vừa điền thì ghi riêng ô đó. Ngoài ra chỉ ghi lại
   //    3 cột tự quản lý, không đụng tới các cột bạn nhập. Chữ ghi dạng chữ, để "24/7" không bị đổi thành ngày tháng.
   //    Cuối cùng mới xoá dòng của từ đã xoá.
   if (all.length) {
@@ -320,6 +333,8 @@ function sync_(sheet, changes, adds, edits, deletes) {
       example: col.example === -1 ? '' : text_(r[col.example]),
       type: col.type === -1 ? '' : text_(r[col.type]),
       synonyms: text_(r[col.synonyms]),
+      antonyms: text_(r[col.antonyms]),
+      related: text_(r[col.related]),
       added: toIso_(r[col.added]),
       lastSeen: toIso_(r[col.last_seen]),
       mastered: r[col.mastered] === true || text_(r[col.mastered]).toUpperCase() === 'TRUE'
@@ -500,7 +515,7 @@ function makeWords_(ss) {
   note('meaning', 'Từ có nhiều loại: mỗi nghĩa một dòng, mở đầu bằng loại viết tắt như (n), (v). Xuống dòng trong ô bằng Ctrl+Enter.');
   note('example', 'Bọc *cụm từ* để in đậm. Nhiều ví dụ thì xuống dòng trong ô bằng Ctrl+Enter.');
   note('type', 'Loại từ như noun, verb, adjective, hoặc grammar cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: noun, verb. Loại mới được thêm vào tab types để app gợi ý. Bỏ trống cũng được.');
-  note('synonyms', SYNONYMS_NOTE);
+  Object.keys(LINK_NOTES).forEach(name => note(name, LINK_NOTES[name]));
   note('added', ADDED_NOTE);
   return sheet;
 }
