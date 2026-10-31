@@ -20,17 +20,22 @@ const MIN_SECRET = 8;         // mã ngắn hơn thì không nhận, cho khó đ
 
 // Thẻ ẩn đánh dấu tab của app, giá trị là 'words', 'types', 'log' hoặc 'config'
 const TAG = 'tu-vung';
-// Năm cột bạn nhập; từ thêm trong app cũng được ghi vào đây
-const INPUT_COLUMNS = ['term', 'phonetic', 'meaning', 'example', 'type'];
-// Bốn cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
-const EDIT_COLUMNS = ['phonetic', 'meaning', 'example', 'type'];
-// Bốn cột do app tự quản lý, bạn không cần nhập. Sheet dựng từ bản trước thì cột added được thêm vào cuối.
-const AUTO_COLUMNS = ['added', 'last_seen', 'mastered', 'id'];
+// Phiên bản giao tiếp với app. Từ bản 2, app và script nhận ra từng từ theo chữ ở cột term (mỗi từ một dòng), không
+// dùng cột id nữa. App bản trước còn gửi id, nên script nhắc người dùng mở lại app để tải bản mới.
+const API = 2;
+// Sáu cột bạn nhập; từ thêm trong app cũng được ghi vào đây
+const INPUT_COLUMNS = ['term', 'phonetic', 'meaning', 'example', 'type', 'synonyms'];
+// Năm cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
+const EDIT_COLUMNS = ['phonetic', 'meaning', 'example', 'type', 'synonyms'];
+// Ba cột do app tự quản lý, bạn không cần nhập. Sheet dựng từ bản trước thì cột added được thêm vào cuối.
+const AUTO_COLUMNS = ['added', 'last_seen', 'mastered'];
 // Hai cột của tab loại từ: tên loại, và chữ viết tắt đặt trước nghĩa
 const TYPE_COLUMNS = ['type', 'abbr'];
 // Ba cột của tab lượt xem: ngày, số lượt xem thẻ trong ngày đó, và máy đã xem
 const LOG_COLUMNS = ['date', 'views', 'device'];
 const PHONETIC_NOTE = 'Phiên âm, app hiện đúng như bạn gõ, ví dụ /rʌn/. Bỏ trống cũng được.';
+const SYNONYMS_NOTE = 'Từ đồng nghĩa, cách nhau bằng dấu phẩy: unavoidable, inescapable. Chỉ cần ghi ở một từ: '
+  + 'inevitable ghi unavoidable thì thẻ unavoidable trong app cũng hiện inevitable. Bỏ trống cũng được.';
 const ADDED_NOTE = 'Ngày thêm từ, script tự ghi. Từ nhập thẳng vào Sheet thì tính từ lần đồng bộ kế tiếp. '
   + 'Từ đã có trước khi có cột này thì để trống.';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;  // ngày app gửi lên, dạng 2026-10-27
@@ -52,6 +57,8 @@ function doPost(e) {
     body = null;
   }
   if (!body || typeof body !== 'object') return fail_('dữ liệu gửi lên không hợp lệ');
+  // App bản trước nhận ra từ theo cột id, mà script này đã bỏ cột đó: nhắc mở lại app để tải bản mới
+  if (!(Number(body.api) >= API)) return fail_('app đang là bản cũ, hãy đóng hẳn app rồi mở lại để cập nhật');
 
   // 1. Mở đúng Sheet theo ID app gửi lên
   const id = text_(body.sheet);
@@ -107,9 +114,9 @@ function doPost(e) {
     const edits = Array.isArray(body.edits) ? body.edits : [];
     const deletes = Array.isArray(body.deletes) ? body.deletes : [];
     const out = sync_(words, changes, adds, edits, deletes);
-    // Có trường types là app biết script này đã nhận phiên âm và loại từ. Có trường log là đã ghi ngày thêm và lượt xem
-    const res = { ok: true, items: out.items, types: syncTypes_(types, out.items),
-      log: syncLog_(log, body.device, body.views), conflicts: out.conflicts, deleted: out.deleted };
+    // Có trường api là app biết script này nhận ra từ theo chữ của từ và có cột synonyms
+    const res = { ok: true, api: API, items: out.items, types: syncTypes_(types, out.items),
+      log: syncLog_(log, body.device, body.views), conflicts: out.conflicts, dupes: out.dupes };
     if (created) res.key = created;
     SpreadsheetApp.flush(); // ghi hết vào Sheet trước khi nhả khoá
     return json_(res);
@@ -130,12 +137,25 @@ function sync_(sheet, changes, adds, edits, deletes) {
   if (header.indexOf('term') === -1) {
     throw new Error('không thấy cột "term" ở hàng 1 của tab ' + sheet.getName());
   }
-  // Cột phonetic (phiên âm) mới có từ bản này: tab chưa có thì chèn ngay sau cột term, để bạn thấy mà nhập
+  // Cột id của bản trước không cần nữa, vì app giờ nhận ra từ theo chữ ở cột term: xoá đi
+  const idCol = header.indexOf('id');
+  if (idCol !== -1) {
+    sheet.deleteColumn(idCol + 1);
+    header.splice(idCol, 1);
+  }
+  // Tab dựng từ bản chưa có cột phonetic (phiên âm): chèn ngay sau cột term, để bạn thấy mà nhập
   if (header.indexOf('phonetic') === -1) {
     const at = header.indexOf('term') + 1;   // số thứ tự (đếm từ 1) của cột term
     sheet.insertColumnsAfter(at, 1);
     sheet.getRange(1, at + 1).setValue('phonetic').setNote(PHONETIC_NOTE);
     header.splice(at, 0, 'phonetic');
+  }
+  // Tab dựng từ bản chưa có cột synonyms (từ đồng nghĩa): chèn ngay sau cột nhập cuối cùng, thường là cột type
+  if (header.indexOf('synonyms') === -1) {
+    const at = Math.max.apply(null, INPUT_COLUMNS.map(name => header.indexOf(name))) + 1;
+    sheet.insertColumnsAfter(at, 1);
+    sheet.getRange(1, at + 1).setValue('synonyms').setNote(SYNONYMS_NOTE);
+    header.splice(at, 0, 'synonyms');
   }
   // Thiếu cột tự quản lý thì thêm vào cuối. Có từ mới hay bản sửa thì thêm cả cột nhập còn thiếu, để không mất chữ nào
   AUTO_COLUMNS.concat(adds.length || edits.length ? INPUT_COLUMNS : []).forEach(name => {
@@ -155,53 +175,76 @@ function sync_(sheet, changes, adds, edits, deletes) {
   const hasTerm = r => text_(r[col.term]) !== '';
   const stamp = new Date();                // lúc đồng bộ, làm ngày thêm cho dòng mới
 
-  // 2. Gắn id cho dòng mới, và cho dòng copy bị trùng id. Dòng mới nhập thẳng vào Sheet thì lấy lúc này làm ngày thêm;
-  //    dòng đã có id mà chưa có ngày thêm (từ có trước khi có cột added) thì để trống.
-  const byId = {};
+  // 2. Mỗi từ một dòng: tìm dòng theo chữ của từ, không phân biệt hoa thường. Sheet có nhiều dòng cùng một từ thì
+  //    dùng dòng trên cùng.
+  const byTerm = new Map();
   rows.forEach(r => {
-    if (!hasTerm(r)) return;
-    let id = text_(r[col.id]);
-    if (!id || byId[id]) {
-      id = Utilities.getUuid().slice(0, 8);
-      if (!toDate_(r[col.added])) r[col.added] = stamp;
-    }
-    r[col.id] = id;
-    byId[id] = r;
-    if (r[col.mastered] === '') r[col.mastered] = false;
+    const k = normTerm_(r[col.term]);
+    if (k && !byTerm.has(k)) byTerm.set(k, r);
   });
 
-  // 3. Từ mới app gửi lên thì thêm vào cuối tab, giữ nguyên id app đặt. Id đã có trong Sheet là từ
-  //    đã thêm ở lần trước mà app chưa nhận được trả lời, nên bỏ qua để không thành hai dòng.
+  // 3. Từ đã xoá trong app: xoá dòng của từ đó, không thấy dòng nào thì coi như đã xoá. Làm trước khi thêm từ mới,
+  //    để xoá một từ rồi thêm lại đúng từ đó thì thành dòng mới. Dòng được xoá thật ở cuối bước ghi, để không làm lệch
+  //    số dòng lúc ghi.
+  const removed = new Set();
+  deletes.forEach(d => {
+    const k = normTerm_(d && d.term);
+    const r = byTerm.get(k);
+    if (!r) return;
+    removed.add(r);
+    byTerm.delete(k);
+  });
+
+  // 4. Từ mới app gửi lên thì thêm vào cuối tab. Từ đã có dòng thì không thêm dòng nữa, chỉ điền những ô còn trống:
+  //    thường là từ đã gửi ở lần trước mà app chưa nhận được trả lời.
   const fresh = [];
+  const edited = [];                      // [dòng, tên cột] của các ô cần ghi
   adds.forEach(a => {
-    const id = text_(a && a.id);
-    if (!id || byId[id] || !text_(a.term)) return;
+    const k = normTerm_(a && a.term);
+    if (!k) return;
+    const had = byTerm.get(k);
+    if (had) {
+      INPUT_COLUMNS.forEach(name => {
+        const v = text_(a[name]);
+        if (!v || text_(had[col[name]]) !== '') return;
+        had[col[name]] = v;
+        edited.push([had, name]);
+      });
+      if (!toDate_(had[col.added]) && toDate_(a.added)) had[col.added] = toDate_(a.added);
+      return;
+    }
     const r = header.map(() => '');
     INPUT_COLUMNS.forEach(name => { r[col[name]] = text_(a[name]); });
-    r[col.id] = id;
-    r[col.added] = toDate_(a.added) || stamp;   // app cũ không gửi ngày thêm thì lấy lúc đồng bộ
+    r[col.added] = toDate_(a.added) || stamp;   // không có ngày thêm thì lấy lúc đồng bộ
     r[col.last_seen] = toDate_(a.lastSeen) || '';
     r[col.mastered] = a.mastered === true;
-    byId[id] = r;
+    byTerm.set(k, r);
     fresh.push(r);
   });
   const all = rows.concat(fresh);
 
-  // 4. Bản sửa từ app: chỉ ghi khi ô trong Sheet vẫn như lúc app lấy về, hoặc đã đúng bản mới. Ô đã được sửa
-  //    trong Sheet, hay dòng không còn, thì giữ nguyên Sheet và báo id đó lại cho app.
+  // 5. Dòng mới nhập thẳng vào Sheet: script chưa gặp dòng này nên ô mastered còn trống. Lấy lúc này làm ngày thêm.
+  //    Từ có trước khi có cột added thì đã có ô mastered, nên ngày thêm vẫn để trống.
+  rows.forEach(r => {
+    if (!hasTerm(r) || r[col.mastered] !== '') return;
+    if (!toDate_(r[col.added])) r[col.added] = stamp;
+    r[col.mastered] = false;
+  });
+
+  // 6. Bản sửa từ app: chỉ ghi khi ô trong Sheet vẫn như lúc app lấy về, hoặc đã đúng bản mới. Ô đã được sửa
+  //    trong Sheet, hay từ không còn trong Sheet, thì giữ nguyên Sheet và báo từ đó lại cho app.
   const conflicts = [];
-  const edited = [];                      // [dòng, tên cột] của các ô cần ghi
   edits.forEach(e => {
-    const id = text_(e && e.id);
+    const k = normTerm_(e && e.term);
     const names = EDIT_COLUMNS.filter(name => e && e[name] && typeof e[name] === 'object');
-    if (!id || !names.length) return;
-    const r = byId[id];
+    if (!k || !names.length) return;
+    const r = byTerm.get(k);
     const ok = r && names.every(name => {
       const now = text_(r[col[name]]);
       return now === text_(e[name].from) || now === text_(e[name].to);
     });
     if (!ok) {
-      conflicts.push(id);
+      conflicts.push(k);
       return;
     }
     names.forEach(name => {
@@ -212,26 +255,10 @@ function sync_(sheet, changes, adds, edits, deletes) {
     });
   });
 
-  // 5. Từ đã xoá trong app: chỉ xoá khi dòng vẫn là từ đó, tức term chưa bị đổi trong Sheet. Dòng không còn thì coi
-  //    như đã xoá. Dòng được xoá thật ở cuối bước ghi, để không làm lệch số dòng lúc ghi.
-  const removed = new Set();
-  const deleted = [];
-  deletes.forEach(d => {
-    const id = text_(d && d.id);
-    if (!id) return;
-    const r = byId[id];
-    if (r && normTerm_(r[col.term]) !== normTerm_(d.term)) {
-      conflicts.push(id);
-      return;
-    }
-    if (r) removed.add(r);
-    deleted.push(id);
-  });
-
-  // 6. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi. Ngày thêm chỉ ghi vào ô
-  //    còn trống: app gửi lại ngày của từ đã thêm lúc script còn là bản cũ.
+  // 7. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi. Ngày thêm chỉ ghi vào ô
+  //    còn trống: app gửi lại ngày của từ đã thêm lúc script chưa có cột added.
   changes.forEach(ch => {
-    const r = byId[text_(ch && ch.id)];
+    const r = byTerm.get(normTerm_(ch && ch.term));
     if (!r) return;
     const seen = toDate_(ch.lastSeen);
     const old = toDate_(r[col.last_seen]);
@@ -241,9 +268,9 @@ function sync_(sheet, changes, adds, edits, deletes) {
     if (added && !toDate_(r[col.added])) r[col.added] = added;
   });
 
-  // 7. Dòng của từ mới thì ghi cả 5 cột nhập, ô vừa được sửa thì ghi riêng ô đó. Ngoài ra chỉ ghi lại 4 cột
-  //    tự quản lý, không đụng tới các cột bạn nhập. Id và chữ ghi dạng chữ, để "0012ab34" hay "24/7" không bị
-  //    đổi thành số hay ngày tháng. Cuối cùng mới xoá dòng của từ đã xoá.
+  // 8. Dòng của từ mới thì ghi cả 6 cột nhập, ô vừa được sửa hay vừa điền thì ghi riêng ô đó. Ngoài ra chỉ ghi lại
+  //    3 cột tự quản lý, không đụng tới các cột bạn nhập. Chữ ghi dạng chữ, để "24/7" không bị đổi thành ngày tháng.
+  //    Cuối cùng mới xoá dòng của từ đã xoá.
   if (all.length) {
     const short = all.length + 1 - sheet.getMaxRows();
     if (short > 0) sheet.insertRowsAfter(sheet.getMaxRows(), short);
@@ -257,7 +284,6 @@ function sync_(sheet, changes, adds, edits, deletes) {
       const i = rows.indexOf(r);           // dòng mới thêm thì đã ghi ở trên
       if (i !== -1) sheet.getRange(i + 2, col[name] + 1).setNumberFormat('@').setValue(r[col[name]]);
     });
-    sheet.getRange(2, col.id + 1, all.length, 1).setNumberFormat('@');
     AUTO_COLUMNS.forEach(name => {
       sheet.getRange(2, col[name] + 1, all.length, 1).setValues(all.map(r => [r[col[name]]]));
     });
@@ -274,19 +300,32 @@ function sync_(sheet, changes, adds, edits, deletes) {
     }
   }
 
-  // 8. Trả các thẻ còn lại về app, kèm id các bản sửa hay lệnh xoá không làm được, và id đã xoá
-  const items = all.filter(r => hasTerm(r) && !removed.has(r)).map(r => ({
-    id: r[col.id],
-    term: text_(r[col.term]),
-    phonetic: text_(r[col.phonetic]),
-    meaning: col.meaning === -1 ? '' : text_(r[col.meaning]),
-    example: col.example === -1 ? '' : text_(r[col.example]),
-    type: col.type === -1 ? '' : text_(r[col.type]),
-    added: toIso_(r[col.added]),
-    lastSeen: toIso_(r[col.last_seen]),
-    mastered: r[col.mastered] === true || text_(r[col.mastered]).toUpperCase() === 'TRUE'
-  }));
-  return { items, conflicts, deleted };
+  // 9. Trả về app mỗi từ một thẻ theo thứ tự trong Sheet, lấy dòng trên cùng của từ. Kèm các từ có bản sửa không ghi
+  //    được, và các từ có ở nhiều dòng để app báo người dùng gộp lại.
+  const items = [];
+  const first = new Map();                // từ → chữ ở dòng trên cùng
+  const dupes = new Set();
+  all.forEach(r => {
+    if (!hasTerm(r) || removed.has(r)) return;
+    const k = normTerm_(r[col.term]);
+    if (first.has(k)) {
+      dupes.add(first.get(k));
+      return;
+    }
+    first.set(k, text_(r[col.term]));
+    items.push({
+      term: text_(r[col.term]),
+      phonetic: text_(r[col.phonetic]),
+      meaning: col.meaning === -1 ? '' : text_(r[col.meaning]),
+      example: col.example === -1 ? '' : text_(r[col.example]),
+      type: col.type === -1 ? '' : text_(r[col.type]),
+      synonyms: text_(r[col.synonyms]),
+      added: toIso_(r[col.added]),
+      lastSeen: toIso_(r[col.last_seen]),
+      mastered: r[col.mastered] === true || text_(r[col.mastered]).toUpperCase() === 'TRUE'
+    });
+  });
+  return { items, conflicts, dupes: Array.from(dupes) };
 }
 
 /**
@@ -456,10 +495,12 @@ function makeWords_(ss) {
   sheet.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
   sheet.setFrozenRows(1);
   const note = (name, text) => sheet.getRange(1, head.indexOf(name) + 1).setNote(text);
+  note('term', 'Mỗi từ một dòng: app nhận ra từ theo chữ ở cột này, không phân biệt hoa thường. Hai dòng cùng một từ thì app chỉ dùng dòng trên cùng.');
   note('phonetic', PHONETIC_NOTE);
   note('meaning', 'Từ có nhiều loại: mỗi nghĩa một dòng, mở đầu bằng loại viết tắt như (n), (v). Xuống dòng trong ô bằng Ctrl+Enter.');
   note('example', 'Bọc *cụm từ* để in đậm. Nhiều ví dụ thì xuống dòng trong ô bằng Ctrl+Enter.');
   note('type', 'Loại từ như noun, verb, adjective, hoặc grammar cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: noun, verb. Loại mới được thêm vào tab types để app gợi ý. Bỏ trống cũng được.');
+  note('synonyms', SYNONYMS_NOTE);
   note('added', ADDED_NOTE);
   return sheet;
 }
