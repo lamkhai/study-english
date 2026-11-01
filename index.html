@@ -384,9 +384,22 @@
     cursor: pointer;
   }
   .actions .primary { flex: 1.7; border-color: transparent; background: var(--ink); color: var(--paper); }
-  .actions .primary:disabled { opacity: .35; cursor: default; }
   .actions .del { color: var(--danger); }
   .actions .primary.danger { background: var(--danger-fill); color: #fff; }
+  .actions button:disabled { opacity: .35; cursor: default; }
+  /* Nút dạng chữ gạch chân trong bảng cài đặt: Xem thay đổi */
+  .lnk {
+    margin: 4px 0 0;
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
 
   /* Bảng toàn màn hình: Tất cả từ và Thống kê trên giấy; xem một từ thì trên bàn, như lúc học */
   dialog.full {
@@ -598,6 +611,50 @@
   .vtop { flex: none; display: flex; align-items: center; gap: 10px; }
   .pos { flex: 1; margin: 0; text-align: right; font-size: 15px; color: var(--desk-muted); font-variant-numeric: tabular-nums; }
 
+  /* Thay đổi chưa đồng bộ: các từ chia theo nhóm, mỗi từ một dòng có nút Bỏ; nút Bỏ tất cả và Đồng bộ ở dưới cùng */
+  .ptop h2 { flex: 1; min-width: 0; margin: 0; }
+  .chg { padding-bottom: 16px; }
+  .chg .note { margin: 0; }
+  .chg h3 { margin: 22px 0 0; font-size: 15px; font-weight: 600; color: var(--pencil); }
+  .chg h3 small { margin-left: 6px; font-size: inherit; font-weight: 400; }
+  .chg ul { margin: 0; padding: 0; list-style: none; }
+  .chg li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .cw { flex: 1; min-width: 0; }
+  .ct { margin: 0; font-size: 17px; line-height: 1.4; overflow-wrap: anywhere; }
+  /* Mỗi ô đã sửa một dòng: Nghĩa: cũ → mới. Ví dụ dài thì cắt ở dòng thứ ba */
+  .cd {
+    display: -webkit-box;
+    margin: 2px 0 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--pencil);
+    overflow-wrap: anywhere;
+  }
+  .cd del { text-decoration-thickness: 1px; }
+  .cd ins { text-decoration: none; color: var(--ink); }
+  .cx {
+    flex: none;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .cx:disabled { opacity: .35; cursor: default; }
+  .pbar {
+    flex: none;
+    margin: 0;
+    padding: 12px 18px calc(env(safe-area-inset-bottom, 0px) + 14px);
+    border-top: 1px solid var(--rule);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .card, .toast { transition: none; }
     .tool.busy svg { animation: none; }
@@ -656,9 +713,27 @@
   <label for="inUrl" id="lblUrl">Link Apps Script (đuôi /exec)</label>
   <input id="inUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
   <p class="info" id="info"></p>
+  <button class="lnk" id="btnSeeChg" type="button" hidden>Xem thay đổi</button>
   <div class="actions">
     <button id="btnClose" type="button">Đóng</button>
     <button id="btnSave" type="button" class="primary">Lưu và đồng bộ</button>
+  </div>
+</dialog>
+
+<dialog id="dlgChg" class="full lib" aria-labelledby="chgTitle">
+  <div class="ptop">
+    <h2 id="chgTitle">Thay đổi chưa đồng bộ</h2>
+    <button class="x" id="btnChgClose" type="button" aria-label="Đóng">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="scroll chg" id="chgBox">
+    <p class="note" id="chgNote"></p>
+    <div id="chgBody"></div>
+  </div>
+  <div class="actions pbar">
+    <button id="btnChgAll" type="button" class="del">Bỏ tất cả</button>
+    <button id="btnChgSync" type="button" class="primary">Đồng bộ</button>
   </div>
 </dialog>
 
@@ -782,7 +857,7 @@
 'use strict';
 
 const KEYS = {
-  items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', deletes: 'tv.deletes', types: 'tv.types',
+  items: 'tv.items', pending: 'tv.pending', edits: 'tv.edits', deletes: 'tv.deletes', base: 'tv.base', types: 'tv.types',
   settings: 'tv.settings', lastSync: 'tv.lastSync', log: 'tv.log'
 };
 const NUM = new Intl.NumberFormat('vi-VN');                                // 1.234
@@ -835,6 +910,9 @@ let items = [];                        // toàn bộ thẻ, mỗi từ một th�
 let pending = dict();                  // thay đổi chưa đồng bộ: { từ: { lastSeen, mastered } }
 let edits = dict();                    // bản sửa chưa đồng bộ: { từ: { meaning: { from, to }, … } }
 let deletes = dict();                  // từ đã xoá trong app, chờ xoá trong Sheet: { từ: { term } }
+// Bản gốc của từ có thay đổi chưa đồng bộ: thẻ như trong Sheet ở lần đồng bộ gần nhất, để bỏ thay đổi thì thẻ trở về
+// như cũ (xem keepBase). Từ mới thêm trong app thì không có
+let base = dict();
 let types = [];                        // loại từ ở tab types của Sheet, nhận về lúc đồng bộ: [{ type, abbr }]
 let settings = { sheet: '', key: '', url: '' }; // url: link script riêng, bỏ trống thì dùng SHARED_URL
 let lastSync = '';
@@ -849,10 +927,13 @@ let autoKey = '';                      // từ mới đang gõ lúc app điền 
 let libFilter = 'all', libSort = 'new', libList = [], libShown = 0;  // Tất cả từ: lọc, cách xếp, danh sách, số dòng đã vẽ
 let statUnit = 'day', statSel = -1, statTable = false;  // Thống kê: theo ngày/tuần/tháng, cột đang chọn (-1: hiện tại)
 let viewKeys = [], viewAt = 0, viewBusy = false, vdrag = null;  // Xem một từ: danh sách lúc bấm vào, đang ở từ thứ mấy
+let chgList = [], syncRuns = 0;        // Thay đổi chưa đồng bộ: các mục đang hiện; số lần đã bắt đầu đồng bộ
 let $card, $stats, $badge, $sync, $master, $next, $hint, $toast, $toastMsg, $toastAct, $dlg, $sheet, $key, $url, $help, $info;
+let $seeChg;
 let $add, $addTitle, $addMsg, $term, $phonetic, $tags, $typeIn, $sugg, $meaning, $example;
 let $addSave, $addDel;
-let $del, $delTitle, $delText;
+let $del, $delTitle, $delText, $delOk;
+let $chg, $chgBox, $chgNote, $chgBody, $chgAll, $chgSync;
 let $lib, $tabWords, $tabStats, $paneWords, $paneStats, $find, $sort, $filt, $words, $wordsBox, $wordsNone, $units;
 let $statsBox, $statsBody;
 let $view, $viewCard, $viewPos, $viewHint, $prev, $nextWord;
@@ -972,17 +1053,26 @@ function store(key, value) {
 function persist() {
   if (demo) return true;
   const ok = store(KEYS.items, items) && store(KEYS.pending, pending) && store(KEYS.edits, edits)
-    && store(KEYS.deletes, deletes) && store(KEYS.log, log);
+    && store(KEYS.deletes, deletes) && store(KEYS.base, base) && store(KEYS.log, log);
   if (!ok) toast('Không lưu được vào bộ nhớ máy. Kiểm tra dung lượng trống.');
   return ok;
 }
-// Số thẻ có thay đổi chưa gửi lên Sheet: tiến độ học, bản sửa, từ đã xoá, hoặc từ mới thêm trong app (mỗi thẻ tính một lần)
-function unsynced() {
+// Các từ có thay đổi chưa gửi lên Sheet: tiến độ học, bản sửa, từ đã xoá, hoặc từ mới thêm trong app
+function changedKeys() {
   const keys = new Set(Object.keys(pending).concat(Object.keys(edits), Object.keys(deletes)));
   items.forEach(x => { if (x.local) keys.add(keyOf(x)); });
-  return keys.size;
+  return keys;
+}
+// Số thẻ có thay đổi chưa gửi lên Sheet, mỗi thẻ tính một lần
+function unsynced() { return changedKeys().size; }
+// Chụp bản gốc của thẻ ngay trước thay đổi đầu tiên, lúc thẻ còn đúng như trong Sheet. Thẻ đã có thay đổi mà chưa có bản
+// gốc (thay đổi làm ở bản app trước) thì không chụp, vì thẻ đã khác Sheet
+function keepBase(it) {
+  const k = keyOf(it);
+  if (!it.local && !base[k] && !pending[k] && !edits[k] && !deletes[k]) base[k] = Object.assign({}, it);
 }
 function recordChange(item, patch) {
+  if (!demo) keepBase(item);             // trước khi đổi thẻ
   Object.assign(item, patch);
   if (!demo) {
     const k = keyOf(item);
@@ -1233,8 +1323,9 @@ function onUp(e) {
 }
 
 /* ---------- Thông báo ---------- */
-// Bảng đang mở trên cùng: bảng xoá nằm trên bảng sửa, bảng sửa trên bảng xem từ, xem từ trên Tất cả từ
-function topDialog() { return [$del, $add, $view, $lib, $dlg].find(d => d.open) || null; }
+// Bảng đang mở trên cùng: bảng hỏi lại nằm trên bảng sửa hay bảng thay đổi, bảng sửa trên bảng xem từ, xem từ trên Tất
+// cả từ, bảng thay đổi trên bảng cài đặt
+function topDialog() { return [$del, $add, $view, $lib, $chg, $dlg].find(d => d.open) || null; }
 function toast(msg, actionLabel, action) {
   // Đang mở bảng thì đặt thông báo vào bảng trên cùng, không thì bảng che mất
   const host = topDialog() || document.body;
@@ -1610,6 +1701,7 @@ function updateWord() {
 // Sửa nhiều lần trước khi đồng bộ thì giữ "from" của lần đầu; sửa về như cũ thì bỏ.
 function editCard(it, diff) {
   const k = keyOf(it), ed = edits[k] || {};
+  keepBase(it);
   Object.keys(diff).forEach(name => {
     const from = ed[name] ? ed[name].from : it[name];
     if (from === diff[name]) delete ed[name]; else ed[name] = { from, to: diff[name] };
@@ -1639,21 +1731,28 @@ function saved(it, msg) {
   if (persist()) toast(msg);
 }
 
+// Hỏi lại trước khi làm việc khó hoàn tác (xoá từ, bỏ mọi thay đổi): nút đỏ mang chữ ok, bấm thì chạy act
+function confirmAct(title, text, ok, act) {
+  $delTitle.textContent = title;
+  $delText.textContent = text;
+  $delOk.textContent = ok;
+  $delOk.onclick = act;
+  $del.showModal();
+}
 // Xoá từ đang sửa: hỏi lại trước khi xoá
 function askDelete() {
   const it = editing;
   if (!it) return;
-  $delTitle.textContent = `Xoá “${it.term}”?`;
-  $delText.textContent = it.local && !it.tried
+  confirmAct(`Xoá “${it.term}”?`, it.local && !it.tried
     ? 'Từ này chưa lên Sheet, xoá rồi là mất hẳn.'
-    : 'Thẻ sẽ mất khỏi bộ thẻ, và dòng của từ này trong Sheet bị xoá ở lần đồng bộ kế tiếp.';
-  $del.showModal();
+    : 'Thẻ sẽ mất khỏi bộ thẻ, và dòng của từ này trong Sheet bị xoá ở lần đồng bộ kế tiếp.', 'Xoá', deleteWord);
 }
 function deleteWord() {
   const it = editing;
   $del.close();
   if (!it) return;
   const k = keyOf(it);
+  keepBase(it);                          // bỏ lệnh xoá thì thẻ hiện lại như trong Sheet
   items = items.filter(x => x !== it);
   delete pending[k];
   delete edits[k];
@@ -1977,11 +2076,199 @@ function pickPeriod(el, i, focus) {
   if (focus) $statsBody.querySelectorAll('.metric')[k].querySelector('.col[tabindex="0"]').focus();
 }
 
+/* ---------- Thay đổi chưa đồng bộ ----------
+   Xem các từ có thay đổi chưa gửi lên Sheet, và bỏ thay đổi của một từ hay của tất cả, kể cả lúc không có mạng. Bỏ thì
+   từ trở về như lúc đồng bộ gần nhất: từ mới thêm trong app thì mất, từ đã xoá thì hiện lại, bản sửa và tiến độ học thì
+   về như cũ. Lượt xem trong Thống kê thì giữ, vì thẻ vẫn đã được xem. */
+// Tên các ô sửa được, theo thứ tự trong bảng Thêm/Sửa từ
+const FIELDS = Object.assign({ phonetic: 'Phiên âm', type: 'Loại từ', meaning: 'Nghĩa' },
+  Object.fromEntries(LINKS.map(L => [L.name, cap(L.label)])), { example: 'Ví dụ' });
+// Các nhóm trong danh sách, theo thứ tự hiện. Từ có mấy loại thay đổi thì vào nhóm đứng trước
+const KINDS = [
+  { kind: 'add', name: 'Từ mới' }, { kind: 'edit', name: 'Đã sửa' }, { kind: 'del', name: 'Đã xoá' },
+  { kind: 'done', name: 'Đã nắm rõ' }, { kind: 'seen', name: 'Đã xem' }, { kind: 'other', name: 'Khác' }
+];
+// Lúc xem thẻ: hôm nay lúc 14:32
+function seenAt(iso) {
+  const d = new Date(iso);
+  return `${agoText(daysAgo(iso))} lúc ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+// Nghĩa của từ trên một dòng, như ở Tất cả từ
+function gistLine(it) { return esc(lines(it.meaning).join(' · ').replace(/\*/g, '')); }
+// Một ô đã sửa: Nghĩa: cũ → mới. Ô nhiều dòng thì nối các dòng bằng dấu ·
+function fieldLine(name, from, to) {
+  const val = (s, tag) => {
+    const t = lines(s).join(' · ');
+    return t ? `<${tag}>${esc(t)}</${tag}>` : '<em>trống</em>';
+  };
+  return `${FIELDS[name]}: ${val(from, 'del')} → ${val(to, 'ins')}`;
+}
+// Mỗi từ có thay đổi chưa đồng bộ một mục: { k, term, kind (nhóm), info (các dòng mô tả, dạng HTML), at (để xếp: mới
+// trước), later (bỏ lệnh xoá mà chưa có bản gốc: từ chỉ hiện lại sau lần đồng bộ kế tiếp) }
+function changeList() {
+  const byKey = new Map(items.map(x => [keyOf(x), x]));
+  const out = [];
+  changedKeys().forEach(k => {
+    const it = byKey.get(k), p = pending[k] || {}, ed = edits[k] || {}, b = base[k];
+    const term = (it || deletes[k] || b || { term: k }).term;
+    const info = [];
+    let kind, at = 0;
+    if (it && it.local) {                // bản sửa và tiến độ học của từ mới thì đi cùng từ mới, không cần ghi riêng
+      kind = 'add';
+      at = Date.parse(it.added) || 0;
+      if (deletes[k]) info.push('Xoá dòng cũ trong Sheet, thêm lại thành dòng mới');
+      info.push(gistLine(it));
+    } else if (deletes[k]) {
+      kind = 'del';
+      if (b) info.push(gistLine(b));
+    } else {
+      const seen = validDate(p.lastSeen);
+      const done = p.mastered === true, undone = p.mastered === false && !!b && b.mastered === true;
+      kind = Object.keys(ed).length ? 'edit' : done ? 'done' : seen ? 'seen' : 'other';
+      if (kind === 'done' || kind === 'seen') at = Date.parse(p.lastSeen) || 0;
+      Object.keys(FIELDS).forEach(name => { if (ed[name]) info.push(fieldLine(name, ed[name].from, ed[name].to)); });
+      // Nhóm Đã nắm rõ và Đã xem chỉ cần ghi lúc xem
+      const what = undone ? 'Bỏ đánh dấu nắm rõ' : kind !== 'edit' ? '' : done ? 'Đã nắm rõ' : seen ? 'Đã xem' : '';
+      const line = [what, seen ? seenAt(p.lastSeen) : ''].filter(Boolean).join(' ');
+      if (line) info.push(cap(line));
+      if (validDate(p.added)) info.push(`Ghi ngày thêm ${fmtDate(p.added)} vào Sheet`);
+      if (!it) info.push('Từ này không còn trong bộ thẻ');
+    }
+    out.push({ k, term, kind, info: info.filter(Boolean), at, later: !!deletes[k] && !b });
+  });
+  // Chưa có giờ để xếp (bản sửa, từ đã xoá) thì thay đổi làm sau đứng trước
+  const rank = new Map(KINDS.map((K, i) => [K.kind, i]));
+  return out.reverse().sort((x, y) => rank.get(x.kind) - rank.get(y.kind) || y.at - x.at);
+}
+function renderChanges() {
+  if (!$chg.open) return;
+  $chgSync.disabled = syncing;
+  $chgSync.textContent = syncing ? 'Đang đồng bộ…' : 'Đồng bộ';
+  // Đang đồng bộ thì các thay đổi đang trên đường lên Sheet: giữ danh sách đang hiện nhưng chưa cho bỏ, đợi Sheet trả
+  // lời rồi mới vẽ lại
+  if (syncing) {
+    $chgAll.disabled = true;
+    $chgBody.querySelectorAll('.cx').forEach(b => { b.disabled = true; });
+    $chgNote.textContent = 'Đang gửi các thay đổi lên Sheet…';
+    return;
+  }
+  chgList = changeList();
+  $chgAll.disabled = !chgList.length;
+  $chgNote.textContent = chgList.length
+    ? `${NUM.format(chgList.length)} từ có thay đổi chưa gửi lên Sheet. Bấm Đồng bộ để gửi. Bấm Bỏ ở một từ thì từ đó `
+      + 'trở về như lúc đồng bộ gần nhất: từ mới thêm thì mất, từ đã xoá thì hiện lại.'
+    : 'Không còn thay đổi nào chưa gửi lên Sheet.' + (lastSync ? ` Đồng bộ gần nhất lúc ${fmtDateTime(lastSync)}.` : '');
+  let html = '', kind = '';
+  chgList.forEach((e, i) => {
+    if (e.kind !== kind) {
+      const n = chgList.filter(x => x.kind === e.kind).length;
+      html += `${kind ? '</ul>' : ''}<h3>${KINDS.find(K => K.kind === e.kind).name}<small>${NUM.format(n)}</small></h3><ul>`;
+      kind = e.kind;
+    }
+    html += `<li><div class="cw"><p class="ct"><b>${esc(e.term)}</b></p>`
+      + e.info.map(l => `<p class="cd">${l}</p>`).join('')
+      + `</div><button class="cx" type="button" data-i="${i}" aria-label="Bỏ thay đổi của “${esc(e.term)}”">Bỏ</button></li>`;
+  });
+  $chgBody.innerHTML = html + (kind ? '</ul>' : '');
+}
+function openChanges() {
+  if (!$chg.open) $chg.showModal();
+  // Mở lúc đang đồng bộ thì chưa biết các thay đổi đang gửi đi: danh sách để trống cho tới khi Sheet trả lời
+  if (syncing) { chgList = []; $chgBody.textContent = ''; }
+  renderChanges();
+  $chgBox.scrollTop = 0;
+}
+
+// Thẻ như trong Sheet ở lần đồng bộ gần nhất. Thẻ có thay đổi từ bản app trước thì chưa có bản gốc: lấy thẻ trong máy,
+// trả các ô đã sửa về như cũ, và bỏ đánh dấu nắm rõ (chỉ thẻ chưa nắm rõ mới bấm Đã nắm rõ được); last seen thì đợi lần
+// đồng bộ sau. Từ mới thêm trong app, hay từ đã xoá mà chưa có bản gốc, thì không có
+function sheetCopy(k, it) {
+  if (base[k]) return fill(Object.assign({}, base[k]));
+  if (!it || it.local) return null;
+  const x = Object.assign({}, it);
+  Object.keys(edits[k] || {}).forEach(name => { x[name] = edits[k][name].from; });
+  if (pending[k] && pending[k].mastered === true) x.mastered = false;
+  return x;
+}
+// Bỏ mọi thay đổi chưa đồng bộ của từ k. Thẻ cũ được thay bằng bản như trong Sheet chứ không bị sửa, nên hoàn tác chỉ
+// cần đặt thẻ cũ về chỗ. Trả về hàm hoàn tác
+function dropChanges(k) {
+  const at = items.findIndex(x => keyOf(x) === k);
+  const old = at === -1 ? null : items[at], copy = sheetCopy(k, old);
+  const was = { pending: pending[k], edits: edits[k], deletes: deletes[k], base: base[k] };
+  delete pending[k];
+  delete edits[k];
+  delete deletes[k];
+  delete base[k];
+  if (old && copy) items[at] = copy;
+  else if (old) items.splice(at, 1);
+  else if (copy) {                       // từ đã xoá hiện lại, sau các thẻ lấy từ Sheet
+    const end = items.findIndex(x => x.local);
+    items.splice(end === -1 ? items.length : end, 0, copy);
+  }
+  return () => {
+    if (was.pending) pending[k] = was.pending;
+    if (was.edits) edits[k] = was.edits;
+    if (was.deletes) deletes[k] = was.deletes;
+    if (was.base) base[k] = was.base;
+    const i = copy ? items.indexOf(copy) : -1;
+    if (old && i !== -1) items[i] = old;
+    else if (old) items.splice(Math.min(at, items.length), 0, old);
+    else if (i !== -1) items.splice(i, 1);
+  };
+}
+// Thẻ đang học vừa được thay hay bị bỏ: hiện thẻ cùng từ nếu còn và chưa nắm rõ, không thì sang thẻ khác. Chưa có thẻ nào
+// để học thì cũng chọn lại, vì có khi vừa có thẻ hết nắm rõ
+function reshow() {
+  const k = current ? keyOf(current) : '';
+  const same = k ? items.find(x => keyOf(x) === k) : null;
+  if (same && !same.mastered) show(same); else next();
+}
+// Bộ thẻ vừa đổi vì bỏ thay đổi hay hoàn tác: vẽ lại thẻ đang học, danh sách thay đổi và Tất cả từ, rồi lưu
+function afterDiscard() {
+  reshow();
+  renderTop();
+  renderChanges();
+  refreshLib();
+  return persist();
+}
+function discardOne(i) {
+  const e = chgList[i];
+  if (!e || syncing) return;
+  const undo = dropChanges(e.k), runs = syncRuns;
+  if (!afterDiscard()) return;
+  toast(`Đã bỏ thay đổi của “${e.term}”.${e.later ? ' Từ này hiện lại sau lần đồng bộ kế tiếp.' : ''}`, 'Hoàn tác', () => {
+    // Đã đồng bộ từ lúc bỏ thì thôi, vì bộ thẻ giờ là bản Sheet vừa trả về
+    if (syncing || runs !== syncRuns) { toast('Đã đồng bộ nên không hoàn tác được nữa.'); return; }
+    undo();
+    afterDiscard();
+  });
+}
+function askDiscardAll() {
+  if (syncing || !chgList.length) return;
+  const adds = chgList.filter(e => e.kind === 'add').length, rest = chgList.length - adds;
+  confirmAct('Bỏ mọi thay đổi chưa đồng bộ?',
+    [rest ? `${NUM.format(rest)} từ trở về như lúc đồng bộ gần nhất.` : '',
+      adds ? `${NUM.format(adds)} từ mới thêm trong app sẽ mất hẳn.` : ''].filter(Boolean).join(' '),
+    'Bỏ thay đổi', discardAll);
+}
+function discardAll() {
+  $del.close();
+  if (syncing) return;
+  const keys = changedKeys();
+  const later = Array.from(keys).some(k => deletes[k] && !base[k]);
+  keys.forEach(k => dropChanges(k));
+  if (afterDiscard()) {
+    toast(later ? 'Đã bỏ mọi thay đổi. Từ đã xoá hiện lại sau lần đồng bộ kế tiếp.' : 'Đã bỏ mọi thay đổi chưa đồng bộ.');
+  }
+}
+
 /* ---------- Đồng bộ với Google Sheet ---------- */
 async function sync() {
   if (syncing) return;
   if (!sheetIdOf(settings.sheet) || !scriptUrl()) { openSettings(); return; }
   syncing = true;
+  syncRuns++;
   $sync.classList.add('busy');
   const sending = pending;
   pending = dict();
@@ -1992,6 +2279,7 @@ async function sync() {
   const adding = items.filter(x => x.local);
   adding.forEach(x => { x.tried = true; });      // đã gửi đi: xoá từ này sau đó thì phải báo cả Sheet
   const views = unsentViews();
+  renderChanges();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
   try {
@@ -2038,12 +2326,20 @@ async function sync() {
       log.synced = counts(data.log.mine);
       log.others = counts(data.log.others);
     }
+    // Bản gốc mới (xem keepBase) cho những từ còn thay đổi chưa gửi: thẻ như Sheet vừa trả về, chụp trước khi áp các
+    // thay đổi đó lên thẻ
+    const fresh = dict();
+    const keep = k => {
+      const x = gotBy.get(k);
+      if (x && !fresh[k]) fresh[k] = Object.assign({}, x);
+    };
     // Ngày thêm: ô trong Sheet còn trống mà thẻ trong máy có ngày (từ thêm lúc script chưa có cột added) thì giữ ngày
     // trong máy, và gửi lên ở lần đồng bộ sau
     const had = new Map(items.map(x => [keyOf(x), x.added]));
     got.forEach(x => {
       const k = keyOf(x), a = had.get(k);
       if (x.added || !validDate(a)) return;
+      keep(k);                                   // bản gốc giữ ô ngày thêm còn trống, như trong Sheet
       x.added = a;
       pending[k] = Object.assign({}, pending[k], { added: a });
     });
@@ -2060,6 +2356,8 @@ async function sync() {
     // Từ đã xoá thì script xoá dòng của từ đó (dòng không còn thì thôi), nên không cần làm gì thêm.
     // Từ mới thêm trong lúc chờ đồng bộ thì giữ lại trong máy. Từ xoá trong lúc chờ thì vẫn ẩn
     items = got.concat(items.filter(x => x.local && !gotBy.has(keyOf(x)))).filter(x => !deletes[keyOf(x)]);
+    changedKeys().forEach(keep);
+    base = fresh;
     const byKey = new Map(items.map(x => [keyOf(x), x]));
     Object.keys(pending).forEach(k => {          // thao tác làm trong lúc đang chờ đồng bộ
       const it = byKey.get(k);
@@ -2095,6 +2393,8 @@ async function sync() {
     syncing = false;
     $sync.classList.remove('busy');
     renderTop();
+    renderChanges();
+    if ($dlg.open) renderInfo();
   }
 }
 
@@ -2103,10 +2403,15 @@ function openSettings() {
   $sheet.value = settings.sheet;
   $key.value = settings.key;
   $url.value = settings.url;
+  renderInfo();
+  if (!$dlg.open) $dlg.showModal();
+}
+// Dòng cuối bảng cài đặt: lần đồng bộ gần nhất, số thay đổi chưa gửi, và nút xem các thay đổi đó
+function renderInfo() {
   const n = unsynced();
   $info.textContent = (lastSync ? `Đồng bộ gần nhất lúc ${fmtDateTime(lastSync)}.` : 'Chưa đồng bộ lần nào.')
     + (n ? ` Còn ${n} thay đổi chưa gửi lên Sheet.` : '');
-  if (!$dlg.open) $dlg.showModal();
+  $seeChg.hidden = !n;
 }
 function saveSettings() {
   settings = { sheet: $sheet.value.trim(), key: $key.value.trim(), url: $url.value.trim() };
@@ -2132,18 +2437,20 @@ function init() {
   $card = $('card'); $stats = $('stats'); $badge = $('badge'); $sync = $('btnSync');
   $master = $('btnMaster'); $next = $('btnNext'); $hint = $('hint'); $toast = $('toast'); $toastMsg = $('toastMsg');
   $toastAct = $('toastAct'); $dlg = $('dlg'); $sheet = $('inSheet'); $key = $('inKey'); $url = $('inUrl');
-  $help = $('help'); $info = $('info');
+  $help = $('help'); $info = $('info'); $seeChg = $('btnSeeChg');
   $add = $('dlgAdd'); $addTitle = $('addTitle'); $addMsg = $('addMsg');
   $term = $('inTerm'); $phonetic = $('inPhonetic'); $tags = $('tags'); $typeIn = $('inType'); $sugg = $('sugg');
   $meaning = $('inMeaning'); $example = $('inExample'); $addSave = $('btnAddSave');
   LINKS.forEach(L => { L.$box = $(L.id + 'Tags'); L.$in = $(L.id + 'In'); L.$sugg = $(L.id + 'Sugg'); });
-  $addDel = $('btnAddDel'); $del = $('dlgDel'); $delTitle = $('delTitle'); $delText = $('delText');
+  $addDel = $('btnAddDel'); $del = $('dlgDel'); $delTitle = $('delTitle'); $delText = $('delText'); $delOk = $('btnDelOk');
   $lib = $('dlgLib'); $tabWords = $('tabWords'); $tabStats = $('tabStats'); $paneWords = $('paneWords');
   $paneStats = $('paneStats'); $find = $('inFind'); $sort = $('inSort'); $filt = $('filt'); $words = $('words');
   $wordsBox = $('wordsBox'); $wordsNone = $('wordsNone'); $units = $('units'); $statsBox = $('statsBox');
   $statsBody = $('statsBody');
   $view = $('dlgView'); $viewCard = $('viewCard'); $viewPos = $('viewPos'); $viewHint = $('viewHint');
   $prev = $('btnPrev'); $nextWord = $('btnNextWord');
+  $chg = $('dlgChg'); $chgBox = $('chgBox'); $chgNote = $('chgNote'); $chgBody = $('chgBody'); $chgAll = $('btnChgAll');
+  $chgSync = $('btnChgSync');
   if (SHARED_URL) {
     $('lblUrl').textContent = 'Link Apps Script riêng (không bắt buộc)';
     $url.placeholder = 'Bỏ trống để dùng script chung';
@@ -2157,6 +2464,7 @@ function init() {
   pending = dict(load(KEYS.pending, {}));
   edits = dict(load(KEYS.edits, {}));
   deletes = dict(load(KEYS.deletes, {}));
+  base = dict(load(KEYS.base, {}));
   types = load(KEYS.types, []);
   if (!Array.isArray(types)) types = [];
   settings = Object.assign({ sheet: '', key: '', url: '' }, load(KEYS.settings, {}));
@@ -2189,7 +2497,6 @@ function init() {
   $('btnAddClose').addEventListener('click', () => $add.close());
   $addDel.addEventListener('click', askDelete);
   $('btnDelCancel').addEventListener('click', () => $del.close());
-  $('btnDelOk').addEventListener('click', deleteWord);
   $add.addEventListener('close', () => { if (editing) resetForm(); });  // đóng bảng sửa thì bỏ phần chưa bấm Cập nhật
   // Ngừng gõ ô Từ một chút thì tra xem từ đã có chưa
   $term.addEventListener('input', () => {
@@ -2284,6 +2591,26 @@ function init() {
   $viewCard.addEventListener('pointermove', onViewMove);
   $viewCard.addEventListener('pointerup', onViewUp);
   $viewCard.addEventListener('pointercancel', onViewUp);
+  // Thay đổi chưa đồng bộ, mở từ bảng cài đặt. Đóng thì bảng cài đặt ghi lại số thay đổi còn lại
+  $seeChg.addEventListener('click', openChanges);
+  $('btnChgClose').addEventListener('click', () => $chg.close());
+  $chg.addEventListener('close', () => { if ($dlg.open) renderInfo(); });
+  $chgAll.addEventListener('click', askDiscardAll);
+  $chgSync.addEventListener('click', () => {
+    // Chưa kết nối Sheet: về bảng cài đặt ngay bên dưới, giữ nguyên những gì đang gõ dở trong đó
+    if (!sheetIdOf(settings.sheet) || !scriptUrl()) { $chg.close(); $sheet.focus(); return; }
+    sync();
+  });
+  // Bấm Bỏ bằng bàn phím: sau khi danh sách vẽ lại, đưa focus sang nút Bỏ của từ kế tiếp
+  $chgBody.addEventListener('click', e => {
+    const b = e.target.closest('.cx');
+    if (!b) return;
+    const keyboard = document.activeElement === b, i = Number(b.dataset.i);
+    discardOne(i);
+    if (!keyboard) return;
+    const left = $chgBody.querySelectorAll('.cx');
+    (left[Math.min(i, left.length - 1)] || $('btnChgClose')).focus();
+  });
   // Quay lại danh sách: cuộn tới từ vừa xem
   $view.addEventListener('close', () => {
     const k = viewKeys[viewAt];

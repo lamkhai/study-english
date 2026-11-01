@@ -113,7 +113,7 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Vuốt trái hoặc phải, hoặc bấm **Thẻ tiếp**, để sang thẻ khác. Thẻ vừa xem được ghi lại `last seen`.
 - Thẻ tiếp theo được chọn ngẫu nhiên, ưu tiên thẻ chưa xem hoặc lâu chưa xem. Thẻ vừa xem hầu như không lặp lại ngay.
 - Bấm **Đã nắm rõ** thì thẻ không hiện nữa. Bấm nhầm thì chọn **Hoàn tác** trên thông báo.
-- Không có mạng vẫn học bình thường. Con số trên nút ↻ là số thay đổi chưa đồng bộ.
+- Không có mạng vẫn học bình thường. Con số trên nút ↻ là số thay đổi chưa đồng bộ. Muốn xem hay bỏ các thay đổi đó, đọc mục **Thay đổi chưa đồng bộ** bên dưới.
 - Thêm từ mới: bấm **+**, gõ từ, phiên âm, loại từ, nghĩa, từ đồng nghĩa, từ trái nghĩa, từ liên quan, ví dụ rồi bấm **Thêm**. Chỉ ô Từ là bắt buộc. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
 - Ô **Loại từ** chọn được nhiều loại:
   - Chạm loại gợi ý bên dưới ô để chọn nhanh. Loại dùng nhiều đứng trước.
@@ -149,6 +149,20 @@ Mở tab **Thống kê** cạnh **Tất cả từ**, hoặc chạm vào số th�
 - Từ mới đếm theo cột `added`. Từ đã xoá thì không tính. Những từ đã có trước khi có cột `added` thì không vào biểu đồ, app ghi rõ có bao nhiêu từ như vậy.
 - Mỗi lần vuốt sang thẻ khác, bấm **Thẻ tiếp** hay **Đã nắm rõ** là một lượt xem. Lượt xem bắt đầu được đếm từ khi cập nhật app, và được gửi vào tab `log` khi đồng bộ.
 - Dùng nhiều máy chung một Sheet thì Thống kê cộng lượt xem của mọi máy. Số của máy khác được cập nhật mỗi lần bạn đồng bộ.
+
+### Thay đổi chưa đồng bộ
+
+Con số trên nút ↻ là số từ có thay đổi chưa gửi lên Sheet. Muốn biết đó là những thay đổi gì, bấm ⚙ → **Xem thay đổi**. Nút này chỉ hiện khi còn thay đổi chưa gửi.
+- Các từ chia theo nhóm: **Từ mới**, **Đã sửa**, **Đã xoá**, **Đã nắm rõ**, **Đã xem**. Từ đã sửa ghi từng ô đã sửa: nội dung cũ gạch ngang, rồi tới nội dung mới.
+- Bấm **Bỏ** ở một từ để bỏ mọi thay đổi chưa đồng bộ của từ đó. Từ trở về như lúc đồng bộ gần nhất:
+  - Từ mới thêm trong app thì mất hẳn.
+  - Từ đã xoá thì hiện lại.
+  - Bản sửa, đã nắm rõ và `last seen` thì về như cũ.
+- Bấm nhầm **Bỏ** thì chọn **Hoàn tác** trên thông báo.
+- **Bỏ tất cả** bỏ mọi thay đổi chưa đồng bộ. App hỏi lại trước khi bỏ.
+- **Đồng bộ** gửi các thay đổi lên Sheet, như nút ↻.
+- Không có mạng vẫn bỏ được. Lượt xem trong Thống kê thì vẫn giữ.
+- Thay đổi làm từ bản app trước khi có tính năng này: bỏ đi thì `last seen` và từ đã xoá phải đợi lần đồng bộ kế tiếp mới về như trong Sheet.
 
 ## Khi gặp lỗi
 
