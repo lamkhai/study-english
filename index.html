@@ -312,6 +312,28 @@
   }
   dialog textarea { display: block; resize: vertical; }
   dialog input:focus-visible, dialog textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
+  /* Ô Từ: lúc sửa một từ thì ô khoá lại, bên cạnh có nút Đổi chữ và nút × để thôi sửa, gõ từ khác */
+  .termrow { display: flex; gap: 8px; }
+  .termrow input { flex: 1; min-width: 0; }
+  dialog .termrow input[readonly] { border-color: transparent; background: var(--rule); }
+  .termrow button {
+    flex: none;
+    min-width: 48px;
+    padding: 0 14px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .termrow button[hidden] { display: none; }
+  .termrow .icon { padding: 0; }
+  .termrow svg { width: 20px; height: 20px; }
   /* Loại từ: loại đã chọn nằm trong ô, chạm × để bỏ. Gõ vào ô để lọc gợi ý bên dưới, hoặc tạo loại mới */
   .tags {
     display: flex;
@@ -739,7 +761,14 @@
 <dialog id="dlgAdd">
   <h2 id="addTitle">Thêm từ mới</h2>
   <label for="inTerm">Từ</label>
-  <input id="inTerm" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="next" placeholder="make up for" autofocus>
+  <div class="termrow">
+    <input id="inTerm" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="next" placeholder="make up for" autofocus>
+    <button id="btnRename" type="button" hidden>Đổi chữ</button>
+    <button id="btnUnpick" class="icon" type="button" aria-label="Thôi sửa từ này, gõ từ khác" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="chips" id="termSugg" role="group" aria-label="Từ đã có trong bộ thẻ"></div>
   <p class="info warn" id="addMsg" role="status" hidden></p>
   <label for="inPhonetic">Phiên âm</label>
   <input id="inPhonetic" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="/meɪk ʌp fɔːr/">
@@ -887,8 +916,9 @@ const LINKS = [
 const SHARED_URL = 'https://script.google.com/macros/s/AKfycbwcHehzUPC07oMh4-PqGRxwX5AvZzLPS4Y2Fb6GkvJ1RX3TENTF9T-_weUpoA5bk2yI/exec';
 const BOT_EMAIL = '';
 // Phiên bản giao tiếp với script. Bản 2: app và script nhận ra từng từ theo chữ của từ, Sheet không còn cột id.
-// Bản 3: Sheet có thêm cột antonyms (từ trái nghĩa) và related (từ liên quan)
-const API = 3;
+// Bản 3: Sheet có thêm cột antonyms (từ trái nghĩa) và related (từ liên quan). Bản 4: app đổi được chữ của từ, script
+// đổi chữ ở đúng dòng và ở ô từ liên kết của mọi dòng
+const API = 4;
 
 // Thẻ mẫu: chỉ hiện khi chưa đồng bộ lần nào, không được lưu vào máy
 const DEMO = [
@@ -920,7 +950,7 @@ let lastSync = '';
 let log = { device: '', mine: {}, synced: {}, others: {} };
 let current = null;                    // thẻ đang hiện
 let demo = false, busy = false, syncing = false, drag = null, toastTimer = 0;
-let editing = null, before = null, filled = null, lookupTimer = 0;  // bảng đang sửa thẻ nào, và các ô trước/sau khi nạp
+let editing = null, renaming = false, lookupTimer = 0;  // bảng đang sửa thẻ nào, và có đang đổi chữ của thẻ đó không
 let picked = [];                       // loại từ đang chọn trong bảng Thêm/Sửa từ
 let autoKey = '';                      // từ mới đang gõ lúc app điền sẵn các ô từ liên kết (xem LINKS và autoLinks)
 let libFilter = 'all', libSort = 'new', libList = [], libShown = 0;  // Tất cả từ: lọc, cách xếp, danh sách, số dòng đã vẽ
@@ -930,7 +960,7 @@ let chgList = [], syncRuns = 0;        // Thay đổi chưa đồng bộ: các m
 let $card, $stats, $badge, $sync, $master, $next, $hint, $toast, $toastMsg, $toastAct, $dlg, $sheet, $key, $url, $help, $info;
 let $seeChg;
 let $add, $addTitle, $addMsg, $term, $phonetic, $tags, $typeIn, $sugg, $meaning, $example;
-let $addSave, $addDel;
+let $addSave, $addDel, $termSugg, $rename, $unpick;
 let $del, $delTitle, $delText, $delOk;
 let $chg, $chgBox, $chgNote, $chgBody, $chgAll, $chgSync;
 let $lib, $tabWords, $tabStats, $paneWords, $paneStats, $find, $sort, $filt, $words, $wordsBox, $wordsNone, $units;
@@ -1102,12 +1132,16 @@ function keepEdits(sent) {
     edits[k] = ed;
   });
 }
-// Áp các bản sửa còn trong máy lên thẻ vừa nhận từ Sheet
+// Áp các bản sửa còn trong máy lên thẻ vừa nhận từ Sheet. Từ đổi chữ mà Sheet chưa nhận thì Sheet còn ghi chữ cũ: tìm
+// thẻ theo chữ cũ, đổi chữ, rồi đổi chữ đó ở ô từ liên kết như lúc đổi trong máy
 function applyEdits() {
   const byKey = new Map(items.map(x => [keyOf(x), x]));
   Object.keys(edits).forEach(k => {
-    const it = byKey.get(k);
-    if (it) Object.keys(edits[k]).forEach(name => { it[name] = edits[k][name].to; });
+    const ed = edits[k], rn = ed && ed.term;     // đổi chữ của từ trước có thể đã làm một bản sửa thành thừa, bị bỏ
+    const it = ed && byKey.get(rn ? normTerm(rn.from) : k);
+    if (!it) return;
+    Object.keys(ed).forEach(name => { it[name] = ed[name].to; });
+    if (rn) relinkAll(normTerm(rn.from), rn.to);
   });
 }
 // Mỗi từ một thẻ: có hai thẻ cùng một từ (Sheet có dòng trùng, hay dữ liệu từ bản app trước) thì giữ thẻ đầu
@@ -1514,12 +1548,6 @@ function unpickType(name) {
 }
 // Nghĩa để lưu: bỏ dòng trống và dòng chỉ có (v) mà chưa ghi nghĩa
 function cleanMeaning(v) { return lines(v).filter(l => l.replace(PREFIX, '').trim()).join('\n'); }
-// Các dòng của a, thêm những dòng của b mà a chưa có
-function mergeLines(a, b) {
-  const ls = lines(a);
-  lines(b).forEach(l => { if (!ls.includes(l)) ls.push(l); });
-  return ls.join('\n');
-}
 
 // Đặt các từ trong ô của loại L: bỏ từ trùng, và bỏ chính từ đang thêm hay sửa
 function setLinks(L, list) {
@@ -1589,15 +1617,13 @@ function dropAutoLinks() {
   autoKey = '';
 }
 
-function formState() {
-  return { phonetic: $phonetic.value, types: checkedTypes(), meaning: $meaning.value, example: $example.value,
-    links: LINKS.map(L => L.list.slice()) };
-}
-// Những ô trong bảng khác với thẻ. Từ liên kết so với những từ thẻ đang hiện, kể cả từ do thẻ khác ghi
+// Những ô trong bảng khác với thẻ. Từ liên kết so với những từ thẻ đang hiện, kể cả từ do thẻ khác ghi. Đang đổi chữ
+// thì chữ mới cũng là một ô sửa
 function formDiff(it) {
   const diff = {};
-  const phonetic = $phonetic.value.trim();
+  const term = typeName($term.value), phonetic = $phonetic.value.trim();
   const meaning = cleanMeaning($meaning.value), example = lines($example.value).join('\n');
+  if (renaming && term && term !== it.term) diff.term = term;
   if (phonetic !== (it.phonetic || '')) diff.phonetic = phonetic;
   if (meaning !== lines(it.meaning).join('\n')) diff.meaning = meaning;
   if (example !== lines(it.example).join('\n')) diff.example = example;
@@ -1605,55 +1631,77 @@ function formDiff(it) {
   LINKS.forEach(L => { if (!sameSet(L.list, linksOf(it, L))) diff[L.name] = L.list.join(', '); });
   return diff;
 }
-// Cần có từ. Đang sửa thì cần có ô khác thẻ, hoặc chữ gõ dở trong ô Loại từ hay ô từ liên kết mà thẻ chưa có
-// (bấm lưu là chữ đó được thêm vào)
+// Cần có từ. Đang thêm thì từ đó chưa có trong bộ thẻ. Đang sửa thì cần có ô khác thẻ, hoặc chữ gõ dở trong ô Loại từ
+// hay ô từ liên kết mà thẻ chưa có (bấm lưu là chữ đó được thêm vào). Đổi chữ thì chữ mới phải dùng được.
+// Dòng báo dưới ô Từ: từ đã có, chữ mới không dùng được, cách đổi chữ, hay thẻ đã nắm rõ
 function checkAdd() {
-  const typed = normTerm($typeIn.value), self = normTerm($term.value);
+  const term = typeName($term.value), self = normTerm(term);
+  const typed = normTerm($typeIn.value);
   const newType = !!typed && !picked.some(x => normTerm(x) === typed);
   const newLink = LINKS.some(L => {
     const t = normTerm(L.$in.value);
     return !!t && t !== self && !L.list.some(x => normTerm(x) === t);
   });
-  $addSave.disabled = !$term.value.trim()
+  const taken = editing ? null : findWord(term);
+  const block = renaming && term ? renameBlock(term) : '';
+  let msg = '', warn = true;
+  if (taken) msg = `“${taken.term}” đã có trong bộ thẻ. Chạm vào từ này ở gợi ý phía trên để sửa.`;
+  else if (block) msg = block;
+  else if (renaming) {
+    msg = `Gõ chữ mới rồi bấm Cập nhật. Từ nào đang ghi “${editing.term}” ở ô đồng nghĩa, trái nghĩa hay liên quan `
+      + 'cũng đổi theo.';
+    warn = false;
+  } else if (editing && editing.mastered) {
+    msg = 'Thẻ này đã nắm rõ.';
+    warn = false;
+  }
+  $addMsg.textContent = msg;
+  $addMsg.classList.toggle('warn', warn);
+  $addMsg.hidden = !msg;
+  $addSave.disabled = !term || !!taken || !!block
     || (!!editing && !Object.keys(formDiff(editing)).length && !newType && !newLink);
 }
-
-// Gõ ra một từ đã có: chuyển sang sửa thẻ đó. Loại, từ liên kết đã chọn và chữ đã gõ ở Nghĩa, Ví dụ được ghép vào
-// thẻ; phiên âm đã gõ thì thay cho phiên âm của thẻ
-function startEdit(it) {
-  before = formState();
-  setTypes(typesOf(it.type).concat(before.types));
-  $phonetic.value = before.phonetic.trim() || it.phonetic || '';
-  $meaning.value = mergeLines(it.meaning, before.meaning);
-  $example.value = mergeLines(it.example, before.example);
-  LINKS.forEach((L, i) => setLinks(L, linksOf(it, L).concat(before.links[i])));
-  editing = it;
-  filled = formState();
-  $addTitle.textContent = 'Sửa từ';
-  $addSave.textContent = 'Cập nhật';
-  $addMsg.textContent = `“${it.term}” đã có trong bộ thẻ, bạn đang sửa thẻ này.${it.mastered ? ' Thẻ này đã nắm rõ.' : ''}`;
-  $addMsg.hidden = false;
-  $addDel.hidden = false;
+// Chữ mới khi đổi chữ phải còn trống: chưa là từ nào khác, không chờ xoá trong Sheet, và không là chữ cũ của một từ vừa
+// đổi chữ mà chưa đồng bộ (Sheet vẫn còn dòng mang chữ đó). Trả về câu báo, dùng được thì ''
+function renameBlock(term) {
+  const k = normTerm(term), self = keyOf(editing), x = findWord(term);
+  if (x && x !== editing) return `“${x.term}” đã có trong bộ thẻ. Hãy chọn chữ khác.`;
+  const wait = k !== self && (!!deletes[k]
+    || Object.keys(edits).some(e => e !== self && edits[e].term && normTerm(edits[e].term.from) === k));
+  return wait ? `“${term}” còn chờ đồng bộ với Sheet. Bấm ↻ rồi hãy đổi sang chữ này.` : '';
 }
-// Thôi sửa. restore: ô nào chưa sửa từ lúc nạp thì trả về như trước khi nạp
-function stopEdit(restore) {
-  if (restore) {
-    const now = formState();
-    if (now.phonetic === filled.phonetic) $phonetic.value = before.phonetic;
-    if (now.meaning === filled.meaning) $meaning.value = before.meaning;
-    if (now.example === filled.example) $example.value = before.example;
-    if (sameSet(now.types, filled.types)) setTypes(before.types);
-    LINKS.forEach((L, i) => { if (sameSet(now.links[i], filled.links[i])) setLinks(L, before.links[i]); });
-  }
-  editing = before = filled = null;
-  $addTitle.textContent = 'Thêm từ mới';
-  $addSave.textContent = 'Thêm';
-  $addMsg.hidden = true;
-  $addDel.hidden = true;
+// Bảng còn nội dung chưa lưu. Đang sửa: có ô khác thẻ. Đang thêm: đã gõ gì đó ngoài ô Từ, vì chữ ở ô Từ cũng là chữ để
+// tìm (các từ liên kết app tự điền thì không tính). Chữ gõ dở ở ô Loại từ hay ô từ liên kết thì lúc nào cũng tính
+function dirty() {
+  if (typeName($typeIn.value) || LINKS.some(L => typeName(L.$in.value))) return true;
+  if (editing) return Object.keys(formDiff(editing)).length > 0;
+  return !!($phonetic.value.trim() || picked.length || cleanMeaning($meaning.value) || lines($example.value).length
+    || LINKS.some(L => L.list.some(t => !L.auto.includes(normTerm(t)))));
+}
+// Đổi việc bảng đang làm: sửa một từ khác, hay thôi sửa để gõ từ khác. Bảng còn nội dung chưa lưu thì hỏi trước khi bỏ.
+// then: câu nói nội dung đó sẽ ra sao
+function confirmSwitch(then, act) {
+  if (!dirty()) { act(); return; }
+  const what = editing ? `Bạn đã sửa “${editing.term}” mà chưa bấm Cập nhật.` : 'Bảng Thêm từ mới còn nội dung chưa lưu.';
+  confirmAct('Bỏ thay đổi chưa lưu?', `${what} ${then}`, 'Bỏ thay đổi', () => { $del.close(); act(); });
+}
+
+// Nạp thẻ it vào bảng để sửa. Ô Từ khoá lại để không lỡ tay đổi chữ: muốn đổi thì bấm Đổi chữ
+function startEdit(it) {
+  resetForm();
+  editing = it;
+  $term.value = it.term;
+  $phonetic.value = it.phonetic || '';
+  setTypes(typesOf(it.type));
+  $meaning.value = lines(it.meaning).join('\n');
+  $example.value = lines(it.example).join('\n');
+  LINKS.forEach(L => setLinks(L, linksOf(it, L)));
+  renderMode();
 }
 function resetForm() {
   clearTimeout(lookupTimer);
-  if (editing) stopEdit(false);
+  editing = null;
+  renaming = false;
   $term.value = $phonetic.value = $typeIn.value = $meaning.value = $example.value = '';
   setTypes([]);
   autoKey = '';
@@ -1663,41 +1711,83 @@ function resetForm() {
     L.dropped = new Set();
     setLinks(L, []);
   });
+  renderMode();
 }
-// Tra xem từ trong ô Từ đã có trong bộ thẻ chưa. Từ mới thì điền sẵn các thẻ đã ghi nó ở cột từ liên kết
+// Tiêu đề, nút và ô Từ theo việc bảng đang làm: thêm từ mới; sửa một từ (ô Từ khoá lại); hay đổi chữ của từ đang sửa
+function renderMode() {
+  $addTitle.textContent = editing ? 'Sửa từ' : 'Thêm từ mới';
+  $addSave.textContent = editing ? 'Cập nhật' : 'Thêm';
+  $addDel.hidden = !editing;
+  $term.readOnly = !!editing && !renaming;
+  $rename.hidden = !editing;
+  $rename.textContent = renaming ? 'Huỷ' : 'Đổi chữ';
+  $rename.setAttribute('aria-label', renaming ? 'Huỷ đổi chữ' : 'Đổi chữ của từ này');
+  $unpick.hidden = !editing || renaming;
+  renderTermSugg();
+  checkAdd();
+}
+// Đang thêm từ mới: gợi ý tối đa 6 từ trong bộ thẻ có chữ vừa gõ, không cần gõ dấu. Từ trùng hẳn chữ đã gõ đứng đầu, rồi
+// tới từ khớp từ đầu. Chạm một từ thì bảng chuyển sang sửa từ đó
+function renderTermSugg() {
+  const q = typeName($term.value), k = normTerm(q), f = fold(q);
+  let list = [];
+  if (f && !editing && !demo) {
+    const t = x => searchKeys(x).t;
+    list = items.filter(x => t(x).includes(f))
+      .sort((a, b) => (keyOf(b) === k) - (keyOf(a) === k) || t(b).startsWith(f) - t(a).startsWith(f)
+        || (t(a) < t(b) ? -1 : t(a) > t(b) ? 1 : 0))
+      .slice(0, 6);
+  }
+  $termSugg.replaceChildren(...list.map(x => chip(x.term)));
+}
+// Chạm một từ gợi ý ở ô Từ: chuyển hẳn sang sửa từ đó. Ô Từ khoá lại nên bàn phím điện thoại đóng, thấy được cả bảng
+function pickTerm(term) {
+  const it = findWord(term);
+  if (!it) return;
+  confirmSwitch(`Chuyển sang sửa “${it.term}” thì phần này mất.`, () => {
+    startEdit(it);
+    $term.blur();
+    $term.focus();
+  });
+}
+// Nút Đổi chữ: mở ô Từ để gõ chữ mới cho từ đang sửa. Bấm Huỷ thì ô về chữ cũ và khoá lại
+function toggleRename() {
+  if (!editing) return;
+  renaming = !renaming;
+  $term.value = editing.term;
+  renderMode();
+  if (renaming) { $term.focus(); $term.select(); }
+}
+// Nút ×: thôi sửa từ này, bảng trống để gõ từ khác. Còn thay đổi chưa lưu thì hỏi trước
+function leaveEdit() {
+  confirmSwitch('Gõ từ khác thì phần này mất.', () => { resetForm(); $term.focus(); });
+}
+// Ngừng gõ ô Từ một chút: từ mới thì điền sẵn các thẻ đã ghi nó ở cột từ liên kết
 function lookup() {
   clearTimeout(lookupTimer);
-  const found = findWord($term.value);
-  if (found !== editing) {
-    if (editing) stopEdit(true);
-    if (found) {
-      dropAutoLinks();
-      startEdit(found);
-    }
-  }
   if (!editing) autoLinks();
   checkAdd();
 }
 function openAdd(it) {
   if (it) {                              // nút ✎: mở bảng sửa cho thẻ đang xem
-    resetForm();
-    $term.value = it.term;
-    startEdit(it);
-  } else {
-    lookup();                            // bản nháp còn lại có thể trùng từ vừa đồng bộ về
+    confirmSwitch(`Mở “${it.term}” để sửa thì phần này mất.`, () => { startEdit(it); showAdd(); });
+    return;
   }
+  lookup();                              // bản nháp còn lại có thể trùng từ vừa đồng bộ về
+  showAdd();
+}
+function showAdd() {
   renderSugg();                          // loại từ và các từ trong bộ thẻ có thể vừa đổi sau lần đồng bộ
   LINKS.forEach(L => renderLinkSugg(L));
+  renderTermSugg();
   checkAdd();
   if (!$add.open) $add.showModal();
 }
 function saveWord() {
   if (typeName($typeIn.value)) pickType($typeIn.value);  // loại gõ dở mà chưa bấm Enter cũng được tính
   LINKS.forEach(L => { if (typeName(L.$in.value)) pickLink(L, L.$in.value); });  // từ liên kết gõ dở cũng vậy
-  if (!editing) {
-    lookup();
-    if (editing) return;                 // vừa nhận ra từ đã có: để bạn xem nội dung cũ rồi mới bấm Cập nhật
-  }
+  if (!editing) lookup();                // từ mới: điền nốt các thẻ đã ghi nó ở cột từ liên kết
+  checkAdd();
   if ($addSave.disabled) { if (!$term.value.trim()) $term.focus(); return; }
   if (editing) updateWord(); else addWord();
 }
@@ -1715,10 +1805,63 @@ function addWord() {
   saved(it, `Đã thêm “${term}”. Bấm ↻ để gửi lên Sheet.`);
 }
 function updateWord() {
-  const it = editing;
-  editCard(it, formDiff(it));
+  const it = editing, diff = formDiff(it), from = it.term;
+  if (diff.term) renameCard(it, diff.term);
+  delete diff.term;
+  editCard(it, diff);
   unlink(it.term);
-  saved(it, `Đã sửa “${it.term}”. Bấm ↻ để gửi lên Sheet.`);
+  saved(it, it.term !== from ? `Đã đổi “${from}” thành “${it.term}”. Bấm ↻ để gửi lên Sheet.`
+    : `Đã sửa “${it.term}”. Bấm ↻ để gửi lên Sheet.`);
+}
+/* Đổi chữ của từ it thành to. Mọi thứ của từ (nghĩa, ngày thêm, last seen, nắm rõ, thay đổi chưa đồng bộ) đi theo chữ
+   mới, và các thẻ đang ghi nó ở ô từ liên kết cũng đổi theo. Từ đã lên Sheet thì ghi lại bản sửa term: lần đồng bộ sau
+   script đổi chữ ở đúng dòng cũ, rồi đổi chữ đó ở ô từ liên kết của mọi dòng. Từ chưa lên Sheet thì chỉ cần đổi trong
+   máy; đã gửi đi mà chưa nhận được trả lời thì Sheet có thể đã có dòng chữ cũ, nên xoá dòng đó, từ thành dòng mới. */
+function renameCard(it, to) {
+  const from = it.term, oldKey = keyOf(it), newKey = normTerm(to);
+  keepBase(it);                          // bỏ thay đổi thì từ về chữ cũ, như trong Sheet
+  if (newKey !== oldKey) {
+    [pending, edits, base].forEach(o => {
+      if (o[oldKey]) { o[newKey] = o[oldKey]; delete o[oldKey]; }
+    });
+  }
+  if (it.local) {
+    if ((it.tried || syncing) && newKey !== oldKey) deletes[oldKey] = { term: from };
+  } else {
+    const ed = edits[newKey] || {}, orig = ed.term ? ed.term.from : from;
+    if (orig === to) delete ed.term; else ed.term = { from: orig, to };
+    if (Object.keys(ed).length) edits[newKey] = ed; else delete edits[newKey];
+  }
+  it.term = to;
+  relinkAll(oldKey, to);
+}
+// Đổi chữ của một từ (fromKey: chữ cũ dạng khoá) trong ô từ liên kết của mọi thẻ, bản gốc và bản sửa chưa đồng bộ:
+// "lack sth; need" → "lack [sth], need". Script đổi các ô trong Sheet đúng như vậy, nên bản sửa vẫn khớp với Sheet.
+// cards: chỉ đổi ở những thẻ này (và các bản sửa), thay cho mọi thẻ và bản gốc
+function relinkAll(fromKey, to, cards) {
+  const swap = s => {
+    const ws = wordsOf(s);
+    if (!ws.some(w => normTerm(w) === fromKey)) return s;
+    const out = [];
+    ws.forEach(w => {
+      const v = normTerm(w) === fromKey ? to : w;
+      if (!out.some(o => normTerm(o) === normTerm(v))) out.push(v);
+    });
+    return out.join(', ');
+  };
+  (cards || items.concat(Object.values(base))).forEach(x => LINKS.forEach(L => {
+    const v = swap(x[L.name]);
+    if (v !== x[L.name]) x[L.name] = v;
+  }));
+  Object.keys(edits).forEach(k => {
+    const ed = edits[k];
+    LINKS.forEach(L => {
+      if (!ed[L.name]) return;
+      const f = swap(ed[L.name].from), t = swap(ed[L.name].to);
+      if (f === t) delete ed[L.name]; else ed[L.name] = { from: f, to: t };
+    });
+    if (!Object.keys(ed).length) delete edits[k];
+  });
 }
 // Sửa thẻ trong máy ngay, và ghi lại bản sửa để gửi lên Sheet.
 // Sửa nhiều lần trước khi đồng bộ thì giữ "from" của lần đầu; sửa về như cũ thì bỏ.
@@ -1771,9 +1914,17 @@ function askDelete() {
     : 'Thẻ sẽ mất khỏi bộ thẻ, và dòng của từ này trong Sheet bị xoá ở lần đồng bộ kế tiếp.', 'Xoá', deleteWord);
 }
 function deleteWord() {
-  const it = editing;
+  const shown = editing;
   $del.close();
-  if (!it) return;
+  if (!shown) return;
+  // Từ vừa đổi chữ mà Sheet chưa nhận: trả về như trong Sheet (chữ cũ, các từ liên kết cũng về chữ cũ), rồi xoá dòng
+  // mang chữ cũ
+  let it = shown;
+  const rn = edits[keyOf(it)] && edits[keyOf(it)].term;
+  if (rn) {
+    dropChanges(keyOf(it));
+    it = items.find(x => keyOf(x) === normTerm(rn.from)) || it;
+  }
   const k = keyOf(it);
   keepBase(it);                          // bỏ lệnh xoá thì thẻ hiện lại như trong Sheet
   items = items.filter(x => x !== it);
@@ -1785,10 +1936,10 @@ function deleteWord() {
   if (inSheet) deletes[k] = { term: it.term };
   resetForm();
   $add.close();
-  if (current === it) next(); else renderCard();
+  if (current === shown || current === it) next(); else renderCard();
   renderTop();
   refreshLib();
-  if (persist()) toast(inSheet ? `Đã xoá “${it.term}”. Bấm ↻ để xoá trong Sheet.` : `Đã xoá “${it.term}”.`);
+  if (persist()) toast(inSheet ? `Đã xoá “${shown.term}”. Bấm ↻ để xoá trong Sheet.` : `Đã xoá “${shown.term}”.`);
 }
 
 /* ---------- Tất cả từ ----------
@@ -2104,7 +2255,7 @@ function pickPeriod(el, i, focus) {
    từ trở về như lúc đồng bộ gần nhất: từ mới thêm trong app thì mất, từ đã xoá thì hiện lại, bản sửa và tiến độ học thì
    về như cũ. Lượt xem trong Thống kê thì giữ, vì thẻ vẫn đã được xem. */
 // Tên các ô sửa được, theo thứ tự trong bảng Thêm/Sửa từ
-const FIELDS = Object.assign({ phonetic: 'Phiên âm', type: 'Loại từ', meaning: 'Nghĩa' },
+const FIELDS = Object.assign({ term: 'Từ', phonetic: 'Phiên âm', type: 'Loại từ', meaning: 'Nghĩa' },
   Object.fromEntries(LINKS.map(L => [L.name, cap(L.label)])), { example: 'Ví dụ' });
 // Các nhóm trong danh sách, theo thứ tự hiện. Từ có mấy loại thay đổi thì vào nhóm đứng trước
 const KINDS = [
@@ -2214,10 +2365,12 @@ function sheetCopy(k, it) {
   return x;
 }
 // Bỏ mọi thay đổi chưa đồng bộ của từ k. Thẻ cũ được thay bằng bản như trong Sheet chứ không bị sửa, nên hoàn tác chỉ
-// cần đặt thẻ cũ về chỗ. Trả về hàm hoàn tác
+// cần đặt thẻ cũ về chỗ. Từ vừa đổi chữ thì về chữ cũ, và các thẻ ghi nó ở ô từ liên kết cũng về chữ cũ. Trả về hàm
+// hoàn tác
 function dropChanges(k) {
   const at = items.findIndex(x => keyOf(x) === k);
   const old = at === -1 ? null : items[at], copy = sheetCopy(k, old);
+  const rn = edits[k] && edits[k].term;
   const was = { pending: pending[k], edits: edits[k], deletes: deletes[k], base: base[k] };
   delete pending[k];
   delete edits[k];
@@ -2229,6 +2382,7 @@ function dropChanges(k) {
     const end = items.findIndex(x => x.local);
     items.splice(end === -1 ? items.length : end, 0, copy);
   }
+  if (rn) relinkAll(k, rn.from);
   return () => {
     if (was.pending) pending[k] = was.pending;
     if (was.edits) edits[k] = was.edits;
@@ -2238,6 +2392,7 @@ function dropChanges(k) {
     if (old && i !== -1) items[i] = old;
     else if (old) items.splice(Math.min(at, items.length), 0, old);
     else if (i !== -1) items.splice(i, 1);
+    if (rn) relinkAll(normTerm(rn.from), rn.to);
   };
 }
 // Thẻ đang học vừa được thay hay bị bỏ: hiện thẻ cùng từ nếu còn và chưa nắm rõ, không thì sang thẻ khác. Chưa có thẻ nào
@@ -2306,9 +2461,14 @@ async function sync() {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
   try {
-    // Mỗi thay đổi kèm chữ của từ; script tìm dòng trong Sheet theo chữ đó
+    // Mỗi thay đổi kèm chữ của từ; script tìm dòng trong Sheet theo chữ đó. Đổi chữ thì gửi ở trường rename (chữ cũ,
+    // chữ mới), vì trường term đã là chữ của từ
     const changes = Object.keys(sending).map(k => Object.assign({ term: k }, sending[k]));
-    const fixes = Object.keys(fixing).map(k => Object.assign({ term: k }, fixing[k]));
+    const fixes = Object.keys(fixing).map(k => {
+      const ed = Object.assign({}, fixing[k]), rename = ed.term;
+      delete ed.term;
+      return Object.assign({ term: k }, ed, rename ? { rename } : {});
+    });
     const removes = Object.keys(dropping).map(k => ({ term: k }));
     // body là chuỗi nên trình duyệt gửi dạng text/plain, Apps Script nhận được mà không vướng CORS
     const res = await fetch(scriptUrl(), {
@@ -2330,9 +2490,9 @@ async function sync() {
       settings.key = String(data.key);
       store(KEYS.settings, settings);
     }
-    // Script bản trước chưa có cột antonyms, related (bản trước nữa còn tìm từ theo cột id) nên không ghi đủ những gì
-    // app gửi: giữ mọi thay đổi trong máy, gửi lại khi script đã cập nhật. Gửi lại không bị trùng: từ đã có dòng thì
-    // script chỉ điền ô còn trống, bản sửa đã ghi rồi thì thôi
+    // Script bản trước chưa biết đổi chữ (bản trước nữa chưa có cột antonyms, related, hay còn tìm từ theo cột id) nên
+    // không ghi đủ những gì app gửi: giữ mọi thay đổi trong máy, gửi lại khi script đã cập nhật. Gửi lại không bị trùng:
+    // từ đã có dòng thì script chỉ điền ô còn trống, bản sửa đã ghi rồi thì thôi
     if (!(data.api >= API)) {
       throw new Error('Script chưa được cập nhật nên chưa nhận thay đổi từ app. Thay đổi vẫn lưu trong máy.');
     }
@@ -2350,15 +2510,25 @@ async function sync() {
       log.others = counts(data.log.others);
     }
     // Bản gốc mới (xem keepBase) cho những từ còn thay đổi chưa gửi: thẻ như Sheet vừa trả về, chụp trước khi áp các
-    // thay đổi đó lên thẻ
+    // thay đổi đó lên thẻ. Từ đổi chữ mà Sheet chưa nhận thì Sheet còn ghi chữ cũ
     const fresh = dict();
     const keep = k => {
-      const x = gotBy.get(k);
+      const rn = edits[k] && edits[k].term;
+      const x = gotBy.get(rn ? normTerm(rn.from) : k);
       if (x && !fresh[k]) fresh[k] = Object.assign({}, x);
+    };
+    // Đổi chữ Sheet không nhận (chữ mới đã là từ khác trong Sheet, hay không còn dòng mang chữ cũ): script bỏ qua mọi
+    // thay đổi của từ đó lần này
+    const unrenamed = new Set((Array.isArray(data.unrenamed) ? data.unrenamed : []).map(normTerm));
+    // Chữ Sheet đang ghi cho một thẻ trong máy: từ đổi chữ mà Sheet chưa nhận thì Sheet còn ghi chữ cũ
+    const sheetKey = x => {
+      const k = keyOf(x), sent = fixing[k] && fixing[k].term, later = edits[k] && edits[k].term;
+      const rn = (sent && unrenamed.has(k) && sent) || later;
+      return rn ? normTerm(rn.from) : k;
     };
     // Ngày thêm: ô trong Sheet còn trống mà thẻ trong máy có ngày (từ thêm lúc script chưa có cột added) thì giữ ngày
     // trong máy, và gửi lên ở lần đồng bộ sau
-    const had = new Map(items.map(x => [keyOf(x), x.added]));
+    const had = new Map(items.map(x => [sheetKey(x), x.added]));
     got.forEach(x => {
       const k = keyOf(x), a = had.get(k);
       if (x.added || !validDate(a)) return;
@@ -2369,24 +2539,45 @@ async function sync() {
     // Bản sửa: Sheet đã có nội dung mới thì xong; nằm trong conflicts thì Sheet giữ bản của nó (ô vừa được sửa thẳng
     // trong Sheet, hay từ không còn trong Sheet). Còn lại thì giữ để gửi lần sau
     const conflicts = new Set((Array.isArray(data.conflicts) ? data.conflicts : []).map(normTerm));
-    const lost = [];
+    // Đổi chữ Sheet không nhận: từ giữ chữ cũ, các thay đổi khác của nó đi theo chữ cũ để gửi lần sau
+    const lost = [], lostRename = [];
     Object.keys(fixing).forEach(k => {
-      const it = gotBy.get(k);
-      if (it && Object.keys(fixing[k]).every(name => it[name] === fixing[k][name].to)) return;
+      const it = gotBy.get(k), rn = fixing[k].term;
+      if (rn && unrenamed.has(k)) {
+        lostRename.push(rn);
+        const old = normTerm(rn.from), rest = Object.assign({}, fixing[k]);
+        [pending, edits].forEach(o => {      // thay đổi làm trong lúc chờ đồng bộ cũng đi theo chữ cũ
+          if (!o[k]) return;
+          o[old] = Object.assign({}, o[old], o[k]);
+          delete o[k];
+        });
+        if (edits[old]) delete edits[old].term;
+        delete rest.term;
+        if (Object.keys(rest).length) keepEdits({ [old]: rest });
+        if (edits[old] && !Object.keys(edits[old]).length) delete edits[old];
+        if (sending[k]) pending[old] = Object.assign({}, sending[k], pending[old]);
+        return;
+      }
+      const ed = Object.assign({}, fixing[k]);
+      if (rn && it && it.term === rn.to) delete ed.term;   // Sheet đã đổi chữ: không gửi lại lần sau
+      if (it && Object.keys(ed).every(name => it[name] === ed[name].to)) return;
       if (conflicts.has(k)) lost.push(it ? it.term : '');
-      else keepEdits({ [k]: fixing[k] });
+      else keepEdits({ [k]: ed });
     });
     // Từ đã xoá thì script xoá dòng của từ đó (dòng không còn thì thôi), nên không cần làm gì thêm.
     // Từ mới thêm trong lúc chờ đồng bộ thì giữ lại trong máy. Từ xoá trong lúc chờ thì vẫn ẩn
     items = got.concat(items.filter(x => x.local && !gotBy.has(keyOf(x)))).filter(x => !deletes[keyOf(x)]);
     changedKeys().forEach(keep);
     base = fresh;
+    // Đổi chữ Sheet không nhận: các bản sửa và từ mới thêm trong máy đang ghi chữ mới ở ô từ liên kết thì về chữ cũ. Thẻ
+    // lấy từ Sheet thì để nguyên, vì chữ mới ở đó có thể là của từ khác
+    lostRename.forEach(rn => relinkAll(normTerm(rn.to), rn.from, items.filter(x => x.local)));
+    applyEdits();                                // đổi chữ trước, để tiến độ học tìm được thẻ theo chữ mới
     const byKey = new Map(items.map(x => [keyOf(x), x]));
     Object.keys(pending).forEach(k => {          // thao tác làm trong lúc đang chờ đồng bộ
       const it = byKey.get(k);
       if (it) Object.assign(it, pending[k]);
     });
-    applyEdits();
     lastSync = new Date().toISOString();
     store(KEYS.lastSync, lastSync);
     persist();
@@ -2395,7 +2586,12 @@ async function sync() {
     refreshLib();
     // Sheet có từ ở nhiều dòng: app chỉ dùng dòng trên cùng, nhắc người dùng gộp lại
     const dupes = (Array.isArray(data.dupes) ? data.dupes : []).map(String);
+    const rn0 = lostRename[0];
     toast(data.key ? `Đã thiết lập Sheet, mã bí mật là ${data.key}. Xem lại trong ⚙.`
+      : lostRename.length === 1 ? `Không đổi được “${rn0.from}” thành “${rn0.to}”: Sheet đã có “${rn0.to}”, `
+        + `hoặc “${rn0.from}” vừa bị đổi hay xoá trong Sheet.`
+      : lostRename.length ? `${lostRename.length} từ không đổi được chữ: Sheet đã có chữ mới, hoặc chữ cũ vừa bị đổi `
+        + 'hay xoá trong Sheet.'
       : lost.length === 1 && lost[0] ? `Bản sửa “${lost[0]}” không được ghi vì từ này vừa đổi trong Sheet.`
       : lost.length ? `${lost.length} bản sửa không được ghi vì từ đã đổi hoặc bị xoá trong Sheet.`
       : dupes.length === 1 ? `“${dupes[0]}” có ở nhiều dòng trong Sheet, app chỉ dùng dòng trên cùng.`
@@ -2465,6 +2661,7 @@ function init() {
   $term = $('inTerm'); $phonetic = $('inPhonetic'); $tags = $('tags'); $typeIn = $('inType'); $sugg = $('sugg');
   $meaning = $('inMeaning'); $example = $('inExample'); $addSave = $('btnAddSave');
   LINKS.forEach(L => { L.$box = $(L.id + 'Tags'); L.$in = $(L.id + 'In'); L.$sugg = $(L.id + 'Sugg'); });
+  $termSugg = $('termSugg'); $rename = $('btnRename'); $unpick = $('btnUnpick');
   $addDel = $('btnAddDel'); $del = $('dlgDel'); $delTitle = $('delTitle'); $delText = $('delText'); $delOk = $('btnDelOk');
   $lib = $('dlgLib'); $tabWords = $('tabWords'); $tabStats = $('tabStats'); $paneWords = $('paneWords');
   $paneStats = $('paneStats'); $find = $('inFind'); $sort = $('inSort'); $filt = $('filt'); $words = $('words');
@@ -2521,12 +2718,21 @@ function init() {
   $addDel.addEventListener('click', askDelete);
   $('btnDelCancel').addEventListener('click', () => $del.close());
   $add.addEventListener('close', () => { if (editing) resetForm(); });  // đóng bảng sửa thì bỏ phần chưa bấm Cập nhật
-  // Ngừng gõ ô Từ một chút thì tra xem từ đã có chưa
+  // Gõ ô Từ: gợi ý các từ đã có ngay. Ngừng gõ một chút thì điền sẵn từ liên kết cho từ mới
   $term.addEventListener('input', () => {
+    renderTermSugg();
     checkAdd();
     clearTimeout(lookupTimer);
     lookupTimer = setTimeout(() => { if ($add.open) lookup(); }, 400);
   });
+  // Chạm từ gợi ý: nhấn giữ không lấy focus khỏi ô Từ, để bấm Huỷ ở hộp hỏi thì gõ tiếp được ngay
+  $termSugg.addEventListener('mousedown', e => e.preventDefault());
+  $termSugg.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b) pickTerm(b.dataset.value);
+  });
+  $rename.addEventListener('click', toggleRename);
+  $unpick.addEventListener('click', leaveEdit);
   [$phonetic, $meaning, $example].forEach(el => el.addEventListener('input', checkAdd));
   tagField($tags, $typeIn, $sugg, pickType, unpickType, () => picked, renderSugg);
   LINKS.forEach(L => tagField(L.$box, L.$in, L.$sugg, t => pickLink(L, t), t => unpickLink(L, t), () => L.list,

@@ -85,7 +85,8 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 
 - Mỗi từ một dòng. App nhận ra từng từ theo chữ ở cột `term`, không phân biệt hoa thường.
   - Hai dòng cùng một từ thì app chỉ dùng dòng trên cùng, và mỗi lần đồng bộ đều nhắc bạn gộp lại.
-  - Sửa chữ ở cột `term` thì app coi đó là một từ khác. Ngày thêm, `last_seen` và nắm rõ vẫn giữ vì nằm cùng dòng. Nên đồng bộ trước khi sửa chữ: thay đổi của từ đó chưa gửi lên sẽ không ghi được vào dòng đã đổi chữ.
+  - Muốn đổi chữ của một từ thì nên đổi trong app (xem **Đổi chữ của một từ**), vì các từ liên kết sẽ đổi theo.
+  - Sửa thẳng chữ ở cột `term` thì app coi đó là một từ khác. Ngày thêm, `last_seen` và nắm rõ vẫn giữ vì nằm cùng dòng, nhưng từ nào đang ghi chữ cũ ở ô từ liên kết thì không đổi theo. Nên đồng bộ trước khi sửa chữ: thay đổi của từ đó chưa gửi lên sẽ không ghi được vào dòng đã đổi chữ.
 - Cột `phonetic` ghi phiên âm. App hiện đúng như bạn gõ, ngay dưới từ. Bỏ trống cũng được. Sheet dựng từ bản trước thì lần đồng bộ đầu tiên với script mới sẽ chèn cột này ngay sau cột `term`.
 - Bọc cụm cần in đậm bằng dấu `*`. Một câu có mấy cụm cũng được.
 - Muốn nhiều ví dụ thì xuống dòng trong cùng ô bằng Ctrl+Enter (trên Mac: ⌘+Enter).
@@ -120,7 +121,12 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
   - Gõ để lọc gợi ý. Chưa có loại đó thì bấm Enter, gõ dấu phẩy hoặc chạm **+ Thêm** để tạo loại mới.
   - Chạm × để bỏ một loại.
   - Loại mới được lưu cùng từ khi bấm **Thêm** hay **Cập nhật**, rồi vào tab `types` ở lần đồng bộ kế tiếp.
-- Mỗi từ chỉ có một thẻ. Gõ một từ đã có (không phân biệt hoa thường) thì bảng chuyển sang **Sửa từ**, nạp sẵn mọi ô của thẻ đó; sửa xong bấm **Cập nhật**. Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
+- Mỗi từ chỉ có một thẻ. Gõ vào ô Từ thì app gợi ý các từ đã có chứa chữ vừa gõ, không cần gõ dấu: gõ `la` ra `lack`, `language`.
+  - Chạm một từ gợi ý để chuyển sang **Sửa từ**: bảng nạp mọi ô của thẻ đó. Sửa xong bấm **Cập nhật**.
+  - Bảng đang có nội dung chưa lưu thì app hỏi trước khi chuyển, vì chuyển rồi là nội dung đó mất.
+  - Gõ đúng một từ đã có (không phân biệt hoa thường) thì không bấm **Thêm** được, phải chạm vào từ đó để sửa. Gõ tiếp thành từ khác, như `make` thành `make up for`, thì vẫn thêm được.
+  - Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
+  - Lúc sửa, ô Từ khoá lại để không lỡ tay đổi chữ. Bấm × cạnh ô để thôi sửa và gõ từ khác.
 - Chọn loại từ thì app tự gắn loại viết tắt vào ô Nghĩa, kể cả khi chỉ chọn một loại: `(n) cuộc chạy`.
   - Từ có nhiều loại: chọn đủ các loại, app gắn `(n)`, `(v)`… mỗi loại một dòng để bạn ghi mỗi nghĩa một dòng.
   - Chỉ còn một loại mà bỏ đi thì app gỡ `(n)` của loại đó khỏi ô Nghĩa, nghĩa đã gõ vẫn giữ.
@@ -131,8 +137,17 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
   - Bỏ một từ ở bên nào thì cả hai thẻ đều thôi hiện nhau.
 - Bản sửa được ghi vào Sheet ở lần đồng bộ kế tiếp. Nếu trong lúc đó ô ấy đã được sửa thẳng trong Sheet, app giữ bản trong Sheet và báo lại.
 - Xoá từ: trong bảng **Sửa từ** bấm **Xoá**, rồi xác nhận. Thẻ mất khỏi bộ thẻ ngay, và dòng của từ đó trong Sheet bị xoá ở lần đồng bộ kế tiếp. Dòng đã bị sửa chữ ở cột `term` thì không còn khớp từ đó nên không bị xoá.
-- Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được. Sửa chữ của chính từ đó (cột `term`) thì làm trong Sheet.
+- Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được.
 - Từ vừa thêm trong app mà trước lần đồng bộ cũng được gõ thẳng vào Sheet: app giữ dòng trong Sheet, chỉ điền thêm những ô Sheet còn trống.
+
+### Đổi chữ của một từ
+
+Ví dụ đổi `lack sth` thành `lack [sth]`: mở bảng **Sửa từ** của từ đó, bấm **Đổi chữ** cạnh ô Từ, gõ chữ mới rồi bấm **Cập nhật**. Bấm **Huỷ** để giữ chữ cũ.
+- Thẻ giữ nguyên mọi thứ khác: nghĩa, ngày thêm, `last seen`, nắm rõ.
+- Từ nào đang ghi `lack sth` ở ô đồng nghĩa, trái nghĩa hay liên quan cũng đổi thành `lack [sth]`, cả trong Sheet ở lần đồng bộ kế tiếp. Chữ `lack sth` nằm trong nghĩa hay ví dụ thì giữ nguyên.
+- Chữ mới trùng một từ đã có thì không đổi được.
+- Xoá một từ vừa đổi chữ mà chưa đồng bộ thì dòng mang chữ cũ trong Sheet bị xoá.
+- Máy khác còn thay đổi chưa đồng bộ của `lack sth` (đã xem thẻ, đã sửa nghĩa…) thì sau khi đổi chữ, các thay đổi đó không ghi được vào Sheet. Nên đồng bộ mọi máy trước khi đổi chữ.
 
 ### Tất cả từ
 
@@ -154,10 +169,11 @@ Mở tab **Thống kê** cạnh **Tất cả từ**, hoặc chạm vào số th�
 ### Thay đổi chưa đồng bộ
 
 Con số trên nút ↻ là số từ có thay đổi chưa gửi lên Sheet. Muốn biết đó là những thay đổi gì, bấm ⚙ → **Xem thay đổi**. Nút này chỉ hiện khi còn thay đổi chưa gửi.
-- Các từ chia theo nhóm: **Từ mới**, **Đã sửa**, **Đã xoá**, **Đã nắm rõ**, **Đã xem**. Từ đã sửa ghi từng ô đã sửa: nội dung cũ gạch ngang, rồi tới nội dung mới.
+- Các từ chia theo nhóm: **Từ mới**, **Đã sửa**, **Đã xoá**, **Đã nắm rõ**, **Đã xem**. Từ đã sửa ghi từng ô đã sửa: nội dung cũ gạch ngang, rồi tới nội dung mới. Từ đổi chữ ghi ở dòng **Từ**.
 - Bấm **Bỏ** ở một từ để bỏ mọi thay đổi chưa đồng bộ của từ đó. Từ trở về như lúc đồng bộ gần nhất:
   - Từ mới thêm trong app thì mất hẳn.
   - Từ đã xoá thì hiện lại.
+  - Từ đổi chữ thì về chữ cũ, các từ liên kết cũng về chữ cũ.
   - Bản sửa, đã nắm rõ và `last seen` thì về như cũ.
 - Bấm nhầm **Bỏ** thì chọn **Hoàn tác** trên thông báo.
 - **Bỏ tất cả** bỏ mọi thay đổi chưa đồng bộ. App hỏi lại trước khi bỏ.
@@ -180,9 +196,10 @@ Con số trên nút ↻ là số từ có thay đổi chưa gửi lên Sheet. Mu
 | Sheet báo lỗi: script đang bận… | Nhiều người đang đồng bộ cùng lúc. Đợi vài giây rồi bấm ↻. |
 | Sheet báo lỗi: không thấy cột "term"… | Hàng 1 của tab `english` thiếu tiêu đề `term`. Gõ lại tiêu đề `term` vào hàng 1. |
 | Link chưa đúng… | (Cách B) Dùng link đuôi `/exec`, quyền *Anyone*, và Deploy bản mới nhất (xem lưu ý ở Bước 2). |
-| Script chưa được cập nhật nên chưa nhận thay đổi từ app… | Script đang chạy là bản cũ, chưa ghi được các cột app bản này cần (như `antonyms`, `related`). Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
+| Script chưa được cập nhật nên chưa nhận thay đổi từ app… | Script đang chạy là bản cũ, chưa nhận được những gì app bản này gửi (như đổi chữ của từ). Dùng script chung thì báo người quản lý app. Tự dựng (Cách B) thì dán lại `Code.gs` mới rồi deploy **New version** (xem lưu ý ở Bước 2). Thay đổi vẫn nằm trong máy, cập nhật xong thì bấm ↻. |
 | Sheet báo lỗi: app đang là bản cũ… | Script đã được cập nhật nhưng máy này vẫn mở app bản cũ. Đóng hẳn app rồi mở lại lúc có mạng (có khi phải mở lại hai lần), rồi bấm ↻. Thay đổi vẫn nằm trong máy. |
 | Bản sửa “…” không được ghi vì từ này vừa đổi trong Sheet | Ô đó đã được sửa thẳng trong Sheet trước khi app kịp đồng bộ (hoặc chữ của từ ở cột `term` vừa bị đổi), nên app giữ bản trong Sheet. Thẻ trong app giờ là bản trong Sheet; muốn sửa tiếp thì bấm ✎. |
+| Không đổi được “…” thành “…” | Trong lúc chờ đồng bộ, Sheet đã có từ mang chữ mới (gõ thẳng vào Sheet hay thêm từ máy khác), hoặc dòng mang chữ cũ vừa bị đổi hay xoá trong Sheet. Từ giữ chữ cũ, các thay đổi khác của nó vẫn được gửi. Muốn đổi thì chọn chữ khác, hoặc gộp hai từ trong Sheet. |
 | “…” có ở nhiều dòng trong Sheet… | Tab `english` có nhiều dòng cùng một từ (không phân biệt hoa thường), app chỉ dùng dòng trên cùng. Gộp nội dung vào một dòng, xoá các dòng còn lại rồi bấm ↻. |
 | Script chung đang trục trặc… | Báo người quản lý app. Trong lúc chờ vẫn học offline bình thường. |
 | Không gọi được script | Kiểm tra mạng, hoặc dán lại link trong ⚙. |
@@ -245,8 +262,8 @@ Script đang dùng được ghi ở mục **Bản đang chạy**. Nếu đổi b
 
 Sửa `Code.gs` sau này thì dán lại vào project của bot và deploy **New version** (xem lưu ý ở Bước 2). Mọi người dùng chạy bản mới ngay, nên thử kỹ trước khi deploy. Lỗi khi chạy xem ở mục **Executions** trong Apps Script.
 
-> Bản có từ trái nghĩa và từ liên quan cần script mới, nên deploy script trước rồi mới push app.
-> - Script mới vẫn đồng bộ được với app bản ngay trước (bản có từ đồng nghĩa), app đó chỉ chưa hiện hai loại từ mới. App cũ hơn nữa (còn dùng cột `id`) thì bị báo "app đang là bản cũ…".
+> Bản đổi được chữ của từ cần script mới, nên deploy script trước rồi mới push app.
+> - Script mới vẫn đồng bộ được với hai bản app trước (bản có từ đồng nghĩa, và bản có từ trái nghĩa, từ liên quan), các app đó chỉ thiếu những tính năng mới hơn. App cũ hơn nữa (còn dùng cột `id`) thì bị báo "app đang là bản cũ…".
 > - App mới gặp script cũ thì báo "Script chưa được cập nhật…".
 > - Máy báo một trong hai câu trên cũng không mất gì: thay đổi nằm chờ trong máy, app và script cùng là bản mới thì bấm ↻ là gửi hết lên.
 > - Lần đồng bộ đầu tiên với script mới, mỗi Sheet tự thêm các cột còn thiếu (`antonyms`, `related`, và `synonyms` nếu Sheet từ bản cũ hơn), và xoá cột `id` nếu còn.

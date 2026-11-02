@@ -21,14 +21,14 @@ const MIN_SECRET = 8;         // mã ngắn hơn thì không nhận, cho khó đ
 // Thẻ ẩn đánh dấu tab của app, giá trị là 'words', 'types', 'log' hoặc 'config'
 const TAG = 'tu-vung';
 // Phiên bản giao tiếp với app. Bản 2: app và script nhận ra từng từ theo chữ ở cột term (mỗi từ một dòng), không dùng
-// cột id nữa. Bản 3: thêm cột antonyms (từ trái nghĩa) và related (từ liên quan).
-const API = 3;
-// App cũ nhất script còn nhận. App bản 2 chưa biết hai cột mới nhưng không đụng tới chúng, nên vẫn đồng bộ được.
-// App bản 1 còn tìm từ theo cột id, nên script nhắc người dùng mở lại app để tải bản mới.
+// cột id nữa. Bản 3: thêm cột antonyms (từ trái nghĩa) và related (từ liên quan). Bản 4: app đổi được chữ của từ.
+const API = 4;
+// App cũ nhất script còn nhận. App bản 2 chưa biết cột antonyms, related, app bản 3 chưa biết đổi chữ, nhưng không đụng
+// tới chúng nên vẫn đồng bộ được. App bản 1 còn tìm từ theo cột id, nên script nhắc người dùng mở lại app để tải bản mới.
 const OLDEST_APP = 2;
 // Tám cột bạn nhập; từ thêm trong app cũng được ghi vào đây
 const INPUT_COLUMNS = ['term', 'phonetic', 'meaning', 'example', 'type', 'synonyms', 'antonyms', 'related'];
-// Bảy cột app sửa được; muốn sửa chữ của từ (term) thì sửa trong Sheet
+// Bảy cột app sửa được. Chữ của từ (term) thì app gửi riêng ở trường rename, vì script tìm dòng theo chữ đó
 const EDIT_COLUMNS = ['phonetic', 'meaning', 'example', 'type', 'synonyms', 'antonyms', 'related'];
 // Ba cột từ liên kết, mỗi ô ghi các từ cách nhau bằng dấu phẩy, kèm chú thích ở ô tiêu đề. Chỉ cần ghi ở một từ:
 // app hiện liên kết ở cả hai thẻ.
@@ -57,8 +57,8 @@ function doGet() {
 }
 
 /**
- * App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới, bản sửa, từ đã xoá và lượt xem, ghi vào Sheet, trả về
- * toàn bộ thẻ cùng danh sách loại từ và lượt xem mỗi ngày.
+ * App gọi vào đây mỗi lần bấm đồng bộ: nhận tiến độ, từ mới, bản sửa (kể cả đổi chữ), từ đã xoá và lượt xem, ghi vào
+ * Sheet, trả về toàn bộ thẻ cùng danh sách loại từ và lượt xem mỗi ngày.
  */
 function doPost(e) {
   let body;
@@ -125,9 +125,9 @@ function doPost(e) {
     const edits = Array.isArray(body.edits) ? body.edits : [];
     const deletes = Array.isArray(body.deletes) ? body.deletes : [];
     const out = sync_(words, changes, adds, edits, deletes);
-    // Trường api cho app biết script này ghi được những cột nào (từ bản 3: antonyms và related)
+    // Trường api cho app biết script này ghi được những gì (bản 3: cột antonyms và related, bản 4: đổi chữ của từ)
     const res = { ok: true, api: API, items: out.items, types: syncTypes_(types, out.items),
-      log: syncLog_(log, body.device, body.views), conflicts: out.conflicts, dupes: out.dupes };
+      log: syncLog_(log, body.device, body.views), conflicts: out.conflicts, dupes: out.dupes, unrenamed: out.unrenamed };
     if (created) res.key = created;
     SpreadsheetApp.flush(); // ghi hết vào Sheet trước khi nhả khoá
     return json_(res);
@@ -208,10 +208,42 @@ function sync_(sheet, changes, adds, edits, deletes) {
     byTerm.delete(k);
   });
 
-  // 4. Từ mới app gửi lên thì thêm vào cuối tab. Từ đã có dòng thì không thêm dòng nữa, chỉ điền những ô còn trống:
+  // 4. Đổi chữ của từ (app bản 4): đổi ô term ở dòng mang chữ cũ, rồi đổi chữ cũ thành chữ mới ở ô từ liên kết của mọi
+  //    dòng, như app đổi trong máy. Làm trước khi thêm từ mới, để đổi chữ rồi thêm lại đúng chữ cũ thì thành dòng mới.
+  //    Chữ mới đã là từ khác, hay không còn dòng mang chữ cũ, thì không đổi và báo lại cho app. Khi đó bỏ qua mọi thay
+  //    đổi khác của từ này trong lần đồng bộ này, vì chúng mang chữ mới, có thể ghi nhầm sang từ khác.
+  const edited = [];                      // [dòng, tên cột] của các ô cần ghi
+  const unrenamed = [];
+  const blocked = new Set();
+  edits.forEach(e => {
+    const rn = e && e.rename;
+    if (!rn || typeof rn !== 'object') return;
+    const k = normTerm_(e.term), from = normTerm_(rn.from), to = text_(rn.to);
+    if (!k || !from || normTerm_(to) !== k) return;
+    const r = byTerm.get(from), other = byTerm.get(k);
+    if (!r || (other && other !== r)) {
+      unrenamed.push(k);
+      blocked.add(k);
+      return;
+    }
+    r[col.term] = to;
+    edited.push([r, 'term']);
+    byTerm.delete(from);
+    byTerm.set(k, r);
+    rows.forEach(x => {
+      if (removed.has(x)) return;
+      Object.keys(LINK_NOTES).forEach(name => {
+        const v = relink_(x[col[name]], from, to);
+        if (v === null) return;
+        x[col[name]] = v;
+        edited.push([x, name]);
+      });
+    });
+  });
+
+  // 5. Từ mới app gửi lên thì thêm vào cuối tab. Từ đã có dòng thì không thêm dòng nữa, chỉ điền những ô còn trống:
   //    thường là từ đã gửi ở lần trước mà app chưa nhận được trả lời.
   const fresh = [];
-  const edited = [];                      // [dòng, tên cột] của các ô cần ghi
   adds.forEach(a => {
     const k = normTerm_(a && a.term);
     if (!k) return;
@@ -236,7 +268,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
   });
   const all = rows.concat(fresh);
 
-  // 5. Dòng mới nhập thẳng vào Sheet: script chưa gặp dòng này nên ô mastered còn trống. Lấy lúc này làm ngày thêm.
+  // 6. Dòng mới nhập thẳng vào Sheet: script chưa gặp dòng này nên ô mastered còn trống. Lấy lúc này làm ngày thêm.
   //    Từ có trước khi có cột added thì đã có ô mastered, nên ngày thêm vẫn để trống.
   rows.forEach(r => {
     if (!hasTerm(r) || r[col.mastered] !== '') return;
@@ -244,17 +276,20 @@ function sync_(sheet, changes, adds, edits, deletes) {
     r[col.mastered] = false;
   });
 
-  // 6. Bản sửa từ app: chỉ ghi khi ô trong Sheet vẫn như lúc app lấy về, hoặc đã đúng bản mới. Ô đã được sửa
-  //    trong Sheet, hay từ không còn trong Sheet, thì giữ nguyên Sheet và báo từ đó lại cho app.
+  // 7. Bản sửa từ app: chỉ ghi khi ô trong Sheet vẫn như lúc app lấy về, hoặc đã đúng bản mới. Ô đã được sửa
+  //    trong Sheet, hay từ không còn trong Sheet, thì giữ nguyên Sheet và báo từ đó lại cho app. Ô từ liên kết thì so
+  //    các từ trong ô, không so dấu ngăn hay hoa thường: app có thể đã viết lại "a;b" thành "a, b" lúc đổi chữ.
   const conflicts = [];
+  const links = Object.keys(LINK_NOTES);
+  const same = (name, a, b) => a === b || (links.indexOf(name) !== -1 && sameWords_(a, b));
   edits.forEach(e => {
     const k = normTerm_(e && e.term);
     const names = EDIT_COLUMNS.filter(name => e && e[name] && typeof e[name] === 'object');
-    if (!k || !names.length) return;
+    if (!k || !names.length || blocked.has(k)) return;
     const r = byTerm.get(k);
     const ok = r && names.every(name => {
       const now = text_(r[col[name]]);
-      return now === text_(e[name].from) || now === text_(e[name].to);
+      return same(name, now, text_(e[name].from)) || same(name, now, text_(e[name].to));
     });
     if (!ok) {
       conflicts.push(k);
@@ -268,10 +303,11 @@ function sync_(sheet, changes, adds, edits, deletes) {
     });
   });
 
-  // 7. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi. Ngày thêm chỉ ghi vào ô
+  // 8. Ghi tiến độ app gửi lên: last_seen giữ mốc mới hơn, mastered lấy giá trị app gửi. Ngày thêm chỉ ghi vào ô
   //    còn trống: app gửi lại ngày của từ đã thêm lúc script chưa có cột added.
   changes.forEach(ch => {
-    const r = byTerm.get(normTerm_(ch && ch.term));
+    const k = normTerm_(ch && ch.term);
+    const r = blocked.has(k) ? null : byTerm.get(k);
     if (!r) return;
     const seen = toDate_(ch.lastSeen);
     const old = toDate_(r[col.last_seen]);
@@ -281,7 +317,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
     if (added && !toDate_(r[col.added])) r[col.added] = added;
   });
 
-  // 8. Dòng của từ mới thì ghi mọi cột nhập, ô vừa được sửa hay vừa điền thì ghi riêng ô đó. Ngoài ra chỉ ghi lại
+  // 9. Dòng của từ mới thì ghi mọi cột nhập, ô vừa được sửa hay vừa điền thì ghi riêng ô đó. Ngoài ra chỉ ghi lại
   //    3 cột tự quản lý, không đụng tới các cột bạn nhập. Chữ ghi dạng chữ, để "24/7" không bị đổi thành ngày tháng.
   //    Cuối cùng mới xoá dòng của từ đã xoá.
   if (all.length) {
@@ -313,8 +349,8 @@ function sync_(sheet, changes, adds, edits, deletes) {
     }
   }
 
-  // 9. Trả về app mỗi từ một thẻ theo thứ tự trong Sheet, lấy dòng trên cùng của từ. Kèm các từ có bản sửa không ghi
-  //    được, và các từ có ở nhiều dòng để app báo người dùng gộp lại.
+  // 10. Trả về app mỗi từ một thẻ theo thứ tự trong Sheet, lấy dòng trên cùng của từ. Kèm các từ có bản sửa không ghi
+  //     được, các từ không đổi được chữ, và các từ có ở nhiều dòng để app báo người dùng gộp lại.
   const items = [];
   const first = new Map();                // từ → chữ ở dòng trên cùng
   const dupes = new Set();
@@ -340,7 +376,7 @@ function sync_(sheet, changes, adds, edits, deletes) {
       mastered: r[col.mastered] === true || text_(r[col.mastered]).toUpperCase() === 'TRUE'
     });
   });
-  return { items, conflicts, dupes: Array.from(dupes) };
+  return { items, conflicts, dupes: Array.from(dupes), unrenamed };
 }
 
 /**
@@ -510,7 +546,7 @@ function makeWords_(ss) {
   sheet.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
   sheet.setFrozenRows(1);
   const note = (name, text) => sheet.getRange(1, head.indexOf(name) + 1).setNote(text);
-  note('term', 'Mỗi từ một dòng: app nhận ra từ theo chữ ở cột này, không phân biệt hoa thường. Hai dòng cùng một từ thì app chỉ dùng dòng trên cùng.');
+  note('term', 'Mỗi từ một dòng: app nhận ra từ theo chữ ở cột này, không phân biệt hoa thường. Hai dòng cùng một từ thì app chỉ dùng dòng trên cùng. Đổi chữ trong app (bấm ✎ rồi Đổi chữ) thì các từ đang liên kết với từ này đổi theo; sửa thẳng ở đây thì không.');
   note('phonetic', PHONETIC_NOTE);
   note('meaning', 'Từ có nhiều loại: mỗi nghĩa một dòng, mở đầu bằng loại viết tắt như (n), (v). Xuống dòng trong ô bằng Ctrl+Enter.');
   note('example', 'Bọc *cụm từ* để in đậm. Nhiều ví dụ thì xuống dòng trong ô bằng Ctrl+Enter.');
@@ -601,6 +637,32 @@ function normTerm_(v) {
 /** "noun,  phrasal   verb" → ['noun', 'phrasal verb'] */
 function typesOf_(v) {
   return text_(v).split(',').map(t => t.trim().replace(/\s+/g, ' ')).filter(Boolean);
+}
+
+/** Các từ trong một ô từ liên kết, như app: "unavoidable; inescapable" → ['unavoidable', 'inescapable'] */
+function wordsOf_(v) {
+  return text_(v).split(/[,;\n]/).map(t => t.trim().replace(/\s+/g, ' ')).filter(Boolean);
+}
+
+/**
+ * Đổi một từ trong ô từ liên kết, giống hệt app để bản sửa app gửi lên vẫn khớp với ô: "lack sth; need" → "lack [sth],
+ * need". from là chữ cũ dạng khoá (normTerm_). Ô không có từ đó thì trả về null.
+ */
+function relink_(cell, from, to) {
+  const words = wordsOf_(cell);
+  if (!words.some(w => normTerm_(w) === from)) return null;
+  const out = [];
+  words.forEach(w => {
+    const v = normTerm_(w) === from ? to : w;
+    if (!out.some(o => normTerm_(o) === normTerm_(v))) out.push(v);
+  });
+  return out.join(', ');
+}
+
+/** Hai ô từ liên kết có cùng các từ, không kể thứ tự, dấu ngăn và hoa thường: "a;B" và "b, a". */
+function sameWords_(a, b) {
+  const x = new Set(wordsOf_(a).map(normTerm_)), y = new Set(wordsOf_(b).map(normTerm_));
+  return x.size === y.size && Array.from(x).every(w => y.has(w));
 }
 
 function toDate_(v) {
