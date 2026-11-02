@@ -203,8 +203,7 @@
     font-size: 13px;
     color: var(--pencil);
   }
-  .foot span:first-child { margin-right: auto; }
-  .foot .seen { text-align: right; }
+  .foot .seen { margin-left: auto; text-align: right; }
   /* Nút ✎ sửa thẻ: lề âm để chân thẻ không cao thêm */
   .foot .edit {
     flex: none;
@@ -1012,13 +1011,8 @@ function newDevice() {
   const tail = Array.from(crypto.getRandomValues(new Uint8Array(3)), b => b.toString(16).padStart(2, '0')).join('');
   return `${kind}-${tail}`;
 }
-function kindOf(type) {
-  const raw = String(type == null ? '' : type).trim();
-  const t = raw.toLowerCase().normalize('NFC');
-  if (['grammar', 'ngữ pháp', 'ngu phap'].includes(t)) return { label: 'Ngữ pháp', cls: 'grammar' };
-  if (['vocab', 'vocabulary', 'word', 'từ vựng', 'tu vung'].includes(t)) return { label: 'Từ vựng', cls: '' };
-  return { label: raw, cls: '' };
-}
+// Loại dành cho cấu trúc ngữ pháp
+function isGrammar(type) { return ['grammar', 'ngữ pháp', 'ngu phap'].includes(normTerm(type)); }
 
 /* ---------- Chọn thẻ tiếp theo ----------
    Ngẫu nhiên có trọng số: thẻ chưa xem 1.5, thẻ xem cách đây từ 3 ngày trở lên 1,
@@ -1184,7 +1178,7 @@ function renderCard() {
 
 // Thẻ ngữ pháp có đường kẻ màu khác
 function cardClass(it) {
-  return typesOf(it.type).map(kindOf).some(k => k.cls === 'grammar') ? 'card grammar' : 'card';
+  return typesOf(it.type).some(isGrammar) ? 'card grammar' : 'card';
 }
 /* Từ liên kết (đồng nghĩa, trái nghĩa, liên quan): mỗi thẻ ghi các từ của nó ở cột của từng loại. Thẻ hiện thêm các
    thẻ khác ghi nó ở cùng cột, nên chỉ cần ghi ở một bên: inevitable ghi unavoidable là từ đồng nghĩa thì thẻ
@@ -1218,12 +1212,41 @@ function typeNote(term) {
   const ts = x ? typesOf(x.type).map(abbr) : [];
   return ts.length ? ` <i>(${esc(ts.join(', '))})</i>` : '';
 }
+/* Các dòng nghĩa trên thẻ: mỗi loại của từ đứng đầu một dòng, kể cả loại chưa ghi nghĩa. Loại chưa có dòng nào thì
+   thêm dòng chỉ có (v), ngay sau các dòng của loại đứng trước nó. Dòng đầu ô chưa ghi loại là nghĩa của loại đầu tiên,
+   như lúc chọn loại trong bảng Thêm/Sửa từ. Dòng chưa ghi loại nằm sau một dòng có loại là nghĩa tiếp của loại đó. */
+function meaningLines(it) {
+  const ls = lines(it.meaning), ts = typesOf(it.type);
+  if (!ts.length) return ls;
+  // Các loại ghi ở đầu dòng, dạng khoá: "(N) cuộc chạy" → ['n'], "(n, v) chạy" → ['n, v', 'n', 'v']
+  const tagsOf = l => {
+    const m = PREFIX.exec(l);
+    if (!m) return [];
+    const s = m[0].slice(1, -1);
+    return [s].concat(s.split(/[,/]/)).map(normTerm);
+  };
+  // Dòng của một loại ghi viết tắt của loại, viết tắt quen thuộc hoặc nguyên tên: adjective nhận cả (adj) lẫn
+  // (adjective), kể cả khi tab types đổi viết tắt thành a
+  const owns = ts.map(t => {
+    const keys = new Set([abbr(t), ABBR[normTerm(t)], t].filter(Boolean).map(normTerm));
+    return l => tagsOf(l).some(k => keys.has(k));
+  });
+  if (ls.length && !PREFIX.test(ls[0]) && !ls.some(owns[0])) ls[0] = `(${abbr(ts[0])}) ${ls[0]}`;
+  let at = 0;                            // chỗ thêm dòng cho loại còn thiếu: sau các dòng của loại vừa xét
+  owns.forEach((own, i) => {
+    let last = -1;
+    ls.forEach((l, j) => { if (own(l)) last = j; });
+    if (last < 0) { ls.splice(at++, 0, `(${abbr(ts[i])})`); return; }
+    at = last + 1;
+    while (at < ls.length && !PREFIX.test(ls[at])) at++;
+  });
+  return ls;
+}
 
 // Nội dung một thẻ, dùng cho thẻ đang học và thẻ xem trong Tất cả từ
 function cardHtml(it) {
-  const kinds = typesOf(it.type).map(kindOf);
   // (n) cuộc chạy: phần loại từ ở đầu dòng in nghiêng. Từ liên kết ngay dưới nghĩa, mỗi loại một dòng: syn. unavoidable
-  const meaning = lines(it.meaning).map(l => rich(l).replace(PREFIX, '<i>$&</i>')).join('<br>');
+  const meaning = meaningLines(it).map(l => rich(l).replace(PREFIX, '<i>$&</i>')).join('<br>');
   const gist = (meaning ? `<p class="meaning">${meaning}</p>` : '') + LINKS.map(L => {
     const words = linksOf(it, L).map(t => esc(t) + (L.typed ? typeNote(t) : ''));
     return words.length ? `<p class="link"><i>${L.short}</i> ${words.join(', ')}</p>` : '';
@@ -1239,7 +1262,7 @@ function cardHtml(it) {
   return `
     <div class="head"><h1 class="term">${esc(it.term)}</h1>${phon}</div>
     <div class="body">${gist ? `<div class="gist">${gist}</div>` : ''}${examples}</div>
-    <div class="foot"><span>${esc(kinds.map(k => k.label).join(', '))}</span><span class="seen">last seen: ${seen}</span>${edit}</div>`;
+    <div class="foot"><span class="seen">last seen: ${seen}</span>${edit}</div>`;
 }
 
 function show(it) { current = it; renderCard(); }

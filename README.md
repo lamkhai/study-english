@@ -124,6 +124,7 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Chọn loại từ thì app tự gắn loại viết tắt vào ô Nghĩa, kể cả khi chỉ chọn một loại: `(n) cuộc chạy`.
   - Từ có nhiều loại: chọn đủ các loại, app gắn `(n)`, `(v)`… mỗi loại một dòng để bạn ghi mỗi nghĩa một dòng.
   - Chỉ còn một loại mà bỏ đi thì app gỡ `(n)` của loại đó khỏi ô Nghĩa, nghĩa đã gõ vẫn giữ.
+  - Thẻ luôn hiện đủ các loại của từ, mỗi loại ở đầu một dòng. Loại chưa ghi nghĩa thì dòng chỉ có `(v)`. Nghĩa chưa gắn loại thì thẻ gắn loại đầu tiên: `cuộc chạy` hiện là `(n) cuộc chạy`.
 - Ba ô **Từ đồng nghĩa**, **Từ trái nghĩa** và **Từ liên quan** dùng giống ô Loại từ: gõ từ rồi bấm Enter hoặc gõ dấu phẩy, chạm × để bỏ. Gõ vài chữ thì app gợi ý các từ đã có trong bộ thẻ. Các từ này hiện trên thẻ ngay dưới nghĩa, mỗi loại một dòng: `syn.` là từ đồng nghĩa, `ant.` là từ trái nghĩa, `rel.` là từ liên quan.
   - Từ liên quan thường là các từ cùng họ, như `study` với `student`, `studious`. Từ nào đã có trong bộ thẻ thì hiện kèm loại từ của nó: `rel. student (n), studious (adj)`.
   - Chỉ cần ghi ở một bên: `inevitable` ghi `unavoidable` là từ đồng nghĩa thì thẻ `unavoidable` cũng hiện `inevitable`, kể cả khi bạn thêm `unavoidable` sau. Lúc thêm `unavoidable`, ô Từ đồng nghĩa đã điền sẵn `inevitable`. Từ trái nghĩa và từ liên quan cũng vậy.
