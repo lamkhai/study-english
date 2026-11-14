@@ -3,7 +3,9 @@
 Web app cài lên màn hình chính iPhone và Android. Từ vựng nằm trong Google Sheet. Lúc học không cần mạng, chỉ khi bấm nút ↻ để đồng bộ mới cần.
 
 Cấu trúc repo:
-- `index.html`, `sw.js`, `manifest.webmanifest` và 3 file icon: đây là app, GitHub Pages chạy thẳng từ thư mục gốc.
+- `index.html`, thư mục `css/` và `js/`, `sw.js`, `manifest.webmanifest` và 3 file icon: đây là app, GitHub Pages chạy thẳng từ thư mục gốc.
+  - `index.html` chỉ có khung trang và các bảng. Giao diện nằm trong `css/`, code nằm trong `js/`: mỗi file một phần của app (thẻ, bảng Thêm/Sửa từ, Tất cả từ, Thống kê, đồng bộ…).
+  - `js/config.js` chứa link script chung và email bot.
 - `apps-script/Code.gs`: script đồng bộ, chạy trên Apps Script của Google (không chạy trên GitHub). Một script dùng được cho nhiều Sheet.
 
 README có hai phần: **Dùng app** cho người học, và **Quản lý app** cho người đưa app lên GitHub và dựng script chung.
@@ -91,7 +93,12 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Bọc cụm cần in đậm bằng dấu `*`. Một câu có mấy cụm cũng được.
 - Muốn nhiều ví dụ thì xuống dòng trong cùng ô bằng Ctrl+Enter (trên Mac: ⌘+Enter).
 - Cột `type` ghi loại từ như `noun`, `verb`, `adjective`, `phrasal verb`, hoặc `grammar` cho cấu trúc ngữ pháp. Nhiều loại thì cách nhau bằng dấu phẩy: `noun, verb`. Bỏ trống cũng được.
-- Từ có nhiều loại thì ô `meaning` ghi mỗi nghĩa một dòng, mở đầu bằng loại viết tắt: `(n) cuộc chạy`, `(v) chạy`.
+- Ô `meaning` ghi mỗi nghĩa một dòng, mở đầu bằng nhãn là loại viết tắt: `(n) cuộc chạy`, `(v) chạy`. Một loại có từ hai nghĩa thì thêm số vào nhãn: `(v1) chạy`, `(v2) điều hành`. Từ chưa có loại mà có từ hai nghĩa thì nhãn là `(1)`, `(2)`.
+- Mỗi nghĩa đi cùng ví dụ của nó. Từ có từ hai nghĩa thì mỗi dòng ở ô `example` mở đầu bằng nhãn của nghĩa nó thuộc về: ô `meaning` ghi `(v1) chạy` và `(v2) điều hành (công ty)` thì ô `example` ghi `(v1) He *runs* every morning.` và `(v2) She *runs* a small company.`
+  - Các dòng ví dụ không cần xếp thẳng hàng với dòng nghĩa. Một nghĩa có mấy ví dụ thì mấy dòng cùng nhãn.
+  - Từ chỉ có một nghĩa thì ví dụ không cần nhãn, như trước giờ.
+  - Ở từ có từ hai nghĩa, ví dụ không có nhãn, hay có nhãn mà không nghĩa nào mang, là ví dụ chưa gắn nghĩa: thẻ hiện chúng ở cuối.
+  - Nhãn dùng để ghép nghĩa với ví dụ, không phải số thứ tự. Xoá hay thêm nghĩa thẳng trong Sheet thì không cần đánh lại số: thẻ luôn tự đánh số theo thứ tự. App đánh lại số trong Sheet khi bạn sửa nghĩa hay ví dụ của từ đó trong app.
 - Tab `types` liệt kê các loại để app gợi ý. Loại nào dùng ở cột `type` mà tab chưa có thì script tự thêm vào cuối tab.
   - Loại không dùng nữa thì xoá dòng đó. Loại vẫn còn từ dùng thì sẽ được thêm lại.
   - Cột `abbr` là chữ viết tắt đặt trước nghĩa, ví dụ `n` trong `(n) cuộc chạy`. Bỏ trống thì `noun` là `n`, `verb` là `v`, `adjective` là `adj`, `adverb` là `adv`…; loại khác dùng nguyên tên.
@@ -115,7 +122,7 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Thẻ tiếp theo được chọn ngẫu nhiên, ưu tiên thẻ chưa xem hoặc lâu chưa xem. Thẻ vừa xem hầu như không lặp lại ngay.
 - Bấm **Đã nắm rõ** thì thẻ không hiện nữa. Bấm nhầm thì chọn **Hoàn tác** trên thông báo.
 - Không có mạng vẫn học bình thường. Con số trên nút ↻ là số thay đổi chưa đồng bộ. Muốn xem hay bỏ các thay đổi đó, đọc mục **Thay đổi chưa đồng bộ** bên dưới.
-- Thêm từ mới: bấm **+**, gõ từ, phiên âm, loại từ, nghĩa, từ đồng nghĩa, từ trái nghĩa, từ liên quan, ví dụ rồi bấm **Thêm**. Chỉ ô Từ là bắt buộc. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
+- Thêm từ mới: bấm **+**, gõ từ, phiên âm, loại từ, nghĩa và ví dụ, từ đồng nghĩa, từ trái nghĩa, từ liên quan rồi bấm **Thêm**. Chỉ ô Từ là bắt buộc. Không có mạng vẫn thêm được: từ mới vào bộ thẻ ngay, và được ghi vào cuối tab `english` ở lần đồng bộ kế tiếp.
 - Ô **Loại từ** chọn được nhiều loại:
   - Chạm loại gợi ý bên dưới ô để chọn nhanh. Loại dùng nhiều đứng trước.
   - Gõ để lọc gợi ý. Chưa có loại đó thì bấm Enter, gõ dấu phẩy hoặc chạm **+ Thêm** để tạo loại mới.
@@ -127,11 +134,8 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
   - Gõ đúng một từ đã có (không phân biệt hoa thường) thì không bấm **Thêm** được, phải chạm vào từ đó để sửa. Gõ tiếp thành từ khác, như `make` thành `make up for`, thì vẫn thêm được.
   - Nút ✎ ở chân thẻ mở bảng sửa cho thẻ đang xem.
   - Lúc sửa, ô Từ khoá lại để không lỡ tay đổi chữ. Bấm × cạnh ô để thôi sửa và gõ từ khác.
-- Chọn loại từ thì app tự gắn loại viết tắt vào ô Nghĩa, kể cả khi chỉ chọn một loại: `(n) cuộc chạy`.
-  - Từ có nhiều loại: chọn đủ các loại, app gắn `(n)`, `(v)`… mỗi loại một dòng để bạn ghi mỗi nghĩa một dòng.
-  - Chỉ còn một loại mà bỏ đi thì app gỡ `(n)` của loại đó khỏi ô Nghĩa, nghĩa đã gõ vẫn giữ.
-  - Thẻ luôn hiện đủ các loại của từ, mỗi loại ở đầu một dòng. Loại chưa ghi nghĩa thì dòng chỉ có `(v)`. Nghĩa chưa gắn loại thì thẻ gắn loại đầu tiên: `cuộc chạy` hiện là `(n) cuộc chạy`.
-- Ba ô **Từ đồng nghĩa**, **Từ trái nghĩa** và **Từ liên quan** dùng giống ô Loại từ: gõ từ rồi bấm Enter hoặc gõ dấu phẩy, chạm × để bỏ. Gõ vài chữ thì app gợi ý các từ đã có trong bộ thẻ. Các từ này hiện trên thẻ ngay dưới nghĩa, mỗi loại một dòng: `syn.` là từ đồng nghĩa, `ant.` là từ trái nghĩa, `rel.` là từ liên quan.
+- Nghĩa và ví dụ đi thành cặp, một từ có nhiều cặp: xem mục **Một từ nhiều nghĩa** bên dưới.
+- Ba ô **Từ đồng nghĩa**, **Từ trái nghĩa** và **Từ liên quan** dùng giống ô Loại từ: gõ từ rồi bấm Enter hoặc gõ dấu phẩy, chạm × để bỏ. Gõ vài chữ thì app gợi ý các từ đã có trong bộ thẻ. Các từ này hiện ở đầu thẻ, trước loại từ và nghĩa, mỗi loại một dòng: `syn.` là từ đồng nghĩa, `ant.` là từ trái nghĩa, `rel.` là từ liên quan.
   - Từ liên quan thường là các từ cùng họ, như `study` với `student`, `studious`. Từ nào đã có trong bộ thẻ thì hiện kèm loại từ của nó: `rel. student (n), studious (adj)`.
   - Chỉ cần ghi ở một bên: `inevitable` ghi `unavoidable` là từ đồng nghĩa thì thẻ `unavoidable` cũng hiện `inevitable`, kể cả khi bạn thêm `unavoidable` sau. Lúc thêm `unavoidable`, ô Từ đồng nghĩa đã điền sẵn `inevitable`. Từ trái nghĩa và từ liên quan cũng vậy.
   - Bỏ một từ ở bên nào thì cả hai thẻ đều thôi hiện nhau.
@@ -139,6 +143,29 @@ Mỗi dòng trong tab `english` (tab từ vựng app đã tạo) là một từ 
 - Xoá từ: trong bảng **Sửa từ** bấm **Xoá**, rồi xác nhận. Thẻ mất khỏi bộ thẻ ngay, và dòng của từ đó trong Sheet bị xoá ở lần đồng bộ kế tiếp. Dòng đã bị sửa chữ ở cột `term` thì không còn khớp từ đó nên không bị xoá.
 - Nhập từ thẳng vào Sheet rồi bấm ↻ cũng được.
 - Từ vừa thêm trong app mà trước lần đồng bộ cũng được gõ thẳng vào Sheet: app giữ dòng trong Sheet, chỉ điền thêm những ô Sheet còn trống.
+
+### Một từ nhiều nghĩa
+
+Trong bảng **Thêm từ mới** hay **Sửa từ**, mỗi nghĩa là một cặp gồm ô Nghĩa và ô Ví dụ của nghĩa đó (mỗi ví dụ một dòng). Các cặp chia nhóm theo loại từ, đầu mỗi cặp là nhãn như `(v)`.
+- Chọn loại thì có một cặp cho loại đó, kể cả khi chỉ chọn một loại.
+- Một loại có nhiều nghĩa: bấm **+ nghĩa (v)** ở cuối nhóm của loại đó để thêm cặp. Nhãn tự đánh số: `(v1)`, `(v2)`.
+- Bấm × ở đầu cặp để bỏ cặp đó. Nhóm chỉ còn một cặp thì không có ×, muốn bỏ thì bỏ loại.
+- Bỏ một loại thì các cặp của loại đó cũng mất. Chỉ còn một loại mà bỏ đi thì các cặp đã gõ vẫn giữ: chọn loại khác là các cặp thành của loại đó.
+- Lỡ bỏ cặp đã gõ thì chọn **Hoàn tác** trên thông báo.
+- Chưa chọn loại nào vẫn thêm được nhiều nghĩa bằng nút **+ Thêm nghĩa**, nhãn khi đó là `(1)`, `(2)`.
+- Enter ở ô Nghĩa thì sang ô Ví dụ của cặp đó.
+
+Trên thẻ:
+- `syn.`, `ant.`, `rel.` đứng đầu, rồi tới các nghĩa.
+- Từ có từ hai nghĩa: mỗi nghĩa một dòng, ngay dưới là ví dụ của nó.
+- Từ chỉ có một nghĩa: ví dụ ở dưới cùng, như trước giờ.
+- Loại chưa ghi nghĩa thì dòng chỉ có `(v)`.
+
+Từ thêm từ trước, có nhiều nghĩa, thì các ví dụ chưa gắn với nghĩa nào. Thẻ hiện chúng ở cuối. Mở bảng sửa thì chúng nằm ở ô **Ví dụ chưa gắn nghĩa**: chuyển dần sang ô Ví dụ của đúng nghĩa, hoặc cứ để đó. Mở bảng sửa rồi đóng thì không có gì thay đổi.
+
+Cách ghi nghĩa và ví dụ thẳng trong Sheet: xem **Nhập từ vào Sheet**.
+
+> Máy nào chưa mở lại app để cập nhật thì vẫn đọc được từ, nhưng hiện nguyên nhãn `(v1)` ở đầu dòng, có khi thêm một dòng `(v)` trống. Mở lại app lúc có mạng là hết.
 
 ### Đổi chữ của một từ
 
@@ -238,24 +265,26 @@ git remote add origin https://github.com/<tên-tài-khoản>/tu-vung.git
 git push -u origin main
 ```
 
-Nếu không dùng git, trong repo trống bấm **uploading an existing file**, kéo thả toàn bộ nội dung thư mục `tu-vung` (cả thư mục `apps-script`) rồi bấm **Commit changes**.
+Nếu không dùng git, trong repo trống bấm **uploading an existing file**, kéo thả toàn bộ nội dung thư mục `tu-vung` (cả các thư mục `css`, `js` và `apps-script`) rồi bấm **Commit changes**.
 
 Cuối cùng vào **Settings → Pages**, mục *Branch* chọn `main` và `/ (root)` → **Save**. Đợi 1–2 phút, link app có dạng `https://<tên-tài-khoản>.github.io/tu-vung/`.
 
 Sửa code app rồi push lên GitHub: điện thoại tự tải bản mới khi mở app có mạng, và bản mới hiện từ lần mở kế tiếp.
 
-> Repo công khai nên ai cũng đọc được code. Code không chứa từ vựng hay mã bí mật nào: mã của từng người nằm trong tab `config` của Sheet họ. Link script chung trong `index.html` (và email bot, nếu bạn điền `BOT_EMAIL`) thì ai cũng thấy, không sao, vì mỗi Sheet có mã riêng.
+> Thêm, bớt hay đổi tên file trong `css/` hay `js/` thì sửa cả thẻ `<link>`, `<script>` trong `index.html` lẫn danh sách `FILES` trong `sw.js`, rồi tăng số phiên bản `CACHE` trong `sw.js` (như `tu-vung-v2` thành `tu-vung-v3`). Thiếu bước này thì app mở lúc không có mạng sẽ thiếu file. Các file JS chạy theo đúng thứ tự trong `index.html`, nên giữ `config.js` và `core.js` ở đầu, `main.js` ở cuối.
+
+> Repo công khai nên ai cũng đọc được code. Code không chứa từ vựng hay mã bí mật nào: mã của từng người nằm trong tab `config` của Sheet họ. Link script chung trong `js/config.js` (và email bot, nếu bạn điền `BOT_EMAIL`) thì ai cũng thấy, không sao, vì mỗi Sheet có mã riêng.
 
 ### Dựng script chung bằng Gmail bot
 
 Không bắt buộc. Nếu bỏ qua, người dùng chỉ dùng được Cách B.
 
-Script đang dùng được ghi ở mục **Bản đang chạy**. Nếu đổi bot hoặc tạo bản deploy mới thì link `/exec` sẽ đổi. Khi đó phải sửa cả `SHARED_URL` trong `index.html` lẫn mục đó.
+Script đang dùng được ghi ở mục **Bản đang chạy**. Nếu đổi bot hoặc tạo bản deploy mới thì link `/exec` sẽ đổi. Khi đó phải sửa cả `SHARED_URL` trong `js/config.js` lẫn mục đó.
 
 1. Tạo một Gmail mới chỉ để chạy script, ví dụ `tuvung.bot@gmail.com`. Bật xác minh 2 bước và không dùng tài khoản này vào việc khác: ai vào được tài khoản bot là đọc được Sheet của mọi người dùng.
 2. Đăng nhập Gmail bot, mở [script.google.com](https://script.google.com) → **New project**. Xoá code mẫu, dán toàn bộ `apps-script/Code.gs`, đặt tên project rồi bấm Lưu.
 3. Deploy giống mục 3–5 của Bước 2, Cách B (*Execute as*: **Me**, *Who has access*: **Anyone**), rồi copy **Web app URL**.
-4. Trong `index.html`, điền link vừa copy vào `SHARED_URL`, rồi commit và push lên GitHub. `BOT_EMAIL` không bắt buộc:
+4. Trong `js/config.js`, điền link vừa copy vào `SHARED_URL`, rồi commit và push lên GitHub. `BOT_EMAIL` không bắt buộc:
    - Để trống thì email bot không lên GitHub. Bạn tự gửi email bot cho người dùng khi mời họ.
    - Điền vào thì ⚙ hiện sẵn email bot, nhưng email sẽ công khai trên GitHub.
 5. Thử với một Sheet trống: chia sẻ cho bot, dán link vào app, để trống ô mã rồi đồng bộ.

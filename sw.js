@@ -1,9 +1,25 @@
 // Lưu sẵn các file của app trong máy để mở được khi không có mạng.
-// Muốn điện thoại tải lại toàn bộ ngay thì tăng số phiên bản này.
-const CACHE = 'tu-vung-v1';
+// Muốn điện thoại tải lại toàn bộ ngay thì tăng số phiên bản này. Thêm, bớt hay đổi tên file của app (trong css/, js/)
+// thì sửa danh sách FILES và tăng số phiên bản, không thì app mở lúc không có mạng sẽ thiếu file.
+const CACHE = 'tu-vung-v2';
 const FILES = [
   './',
   './index.html',
+  './css/base.css',
+  './css/card.css',
+  './css/form.css',
+  './css/lib.css',
+  './js/config.js',
+  './js/core.js',
+  './js/storage.js',
+  './js/senses.js',
+  './js/card.js',
+  './js/form.js',
+  './js/library.js',
+  './js/stats.js',
+  './js/changes.js',
+  './js/sync.js',
+  './js/main.js',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -11,9 +27,10 @@ const FILES = [
 ];
 
 self.addEventListener('install', event => {
+  // Tải thẳng từ mạng, không lấy bản cũ trong bộ nhớ đệm của trình duyệt, để các file luôn cùng một phiên bản
   event.waitUntil(
     caches.open(CACHE)
-      .then(cache => cache.addAll(FILES))
+      .then(cache => cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });

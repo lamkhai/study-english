@@ -1,0 +1,112 @@
+/* Bàn học xanh mực, thẻ giấy có dòng kẻ, bút dạ quang cho cụm từ đánh dấu *...* */
+:root {
+  --desk: #22314f;
+  --desk-text: #e3e9f4;
+  --desk-muted: #a3b2cc;
+  --desk-line: rgba(255, 255, 255, .18);
+  --paper: #fffefb;
+  --rule: #d5e3f2;
+  --ink: #1d2742;
+  --pencil: #687089;
+  --marker: #ffe45c;
+  --mark-from: 50%;
+  --badge: #ffe45c;
+  --line-vocab: #e26868;
+  --line-grammar: #3c9a6d;
+  --danger: #c43a31;
+  --danger-fill: #c43a31;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --desk: #0e1424;
+    --desk-text: #dfe5f1;
+    --desk-muted: #8796b2;
+    --desk-line: rgba(255, 255, 255, .13);
+    --paper: #18203a;
+    --rule: rgba(150, 180, 230, .12);
+    --ink: #e8ecf5;
+    --pencil: #98a3bb;
+    --marker: #d9b83c;
+    --mark-from: 76%;
+    --line-vocab: #d36767;
+    --line-grammar: #4bae80;
+    --danger: #f08a80;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--desk);
+  color: var(--desk-text);
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--badge); outline-offset: 2px; }
+
+.app {
+  height: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* Thanh trên: số thẻ (chạm để xem thống kê), tất cả từ, thêm từ, đồng bộ, cài đặt */
+.top { display: flex; align-items: center; gap: 10px; }
+.stats {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  text-align: left;
+  color: var(--desk-muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.stats b { color: var(--desk-text); font-weight: 600; }
+.stats span { white-space: nowrap; }    /* màn hình hẹp thì xuống dòng giữa hai vế, không ngắt giữa vế */
+.tool {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--desk-line);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tool svg { width: 20px; height: 20px; }
+.tool.busy svg { animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--badge);
+  color: #1d2742;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+.count[hidden] { display: none; }

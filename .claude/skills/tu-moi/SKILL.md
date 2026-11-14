@@ -1,6 +1,6 @@
 ---
 name: tu-moi
-description: Phân tích một từ tiếng Anh trong câu người dùng gặp, dựa trên trang từ điển Cambridge họ dán vào from-dictionary.md. Tìm loại từ và mục nghĩa khớp (như establish verb [T] (PROVE)), rồi trả phiên âm, loại từ, nghĩa Việt/Anh, từ đồng nghĩa, trái nghĩa, từ liên quan, ví dụ, mỗi ô một khối để copy vào bảng Thêm từ mới của app. Dùng khi người dùng gõ /tu-moi, hoặc nhờ phân tích, tra nghĩa hay thêm một từ trong một câu, đoạn văn.
+description: Phân tích một từ tiếng Anh trong câu người dùng gặp, dựa trên trang từ điển Cambridge họ dán vào from-dictionary.md. Tìm loại từ và mục nghĩa khớp (như establish verb [T] (PROVE)), rồi trả phiên âm, loại từ, nghĩa Việt/Anh, ví dụ, từ đồng nghĩa, trái nghĩa, từ liên quan, mỗi ô một khối để copy vào bảng Thêm từ mới của app. Dùng khi người dùng gõ /tu-moi, hoặc nhờ phân tích, tra nghĩa hay thêm một từ trong một câu, đoạn văn.
 argument-hint: "[từ] | <câu có chứa từ>"
 allowed-tools: Read, Grep
 ---
@@ -57,10 +57,10 @@ Sau đó là các ô, đúng thứ tự trong bảng Thêm từ mới. Mỗi ô:
 | Phiên âm | Chép phiên âm của đúng loại từ đã chọn trong file. UK và US giống nhau thì ghi một; khác thì `UK /…/, US /…/`. Cụm thì ghi phiên âm cả cụm, như thẻ mẫu của app (make up for → /meɪk ʌp fɔːr/): phần có trong file thì chép, các chữ còn lại theo hiểu biết của bạn, như `UK /ɪˈstæb.lɪʃ jɔːˈself/, US /ɪˈstæb.lɪʃ jʊrˈself/`. |
 | Loại từ | Chỉ tên loại tiếng Anh, chữ thường: noun, verb, adjective, adverb, phrasal verb, phrase, idiom… Không ghi nhãn nghĩa hay [T]: app dùng ô này để gợi ý loại và tự gắn (v) trước nghĩa, ghi thêm sẽ tạo ra loại mới. |
 | Nghĩa | Một dòng: nghĩa tiếng Việt theo câu (2–6 chữ, có thể hai cách dịch cách nhau bằng dấu phẩy), rồi ` — `, rồi nghĩa tiếng Anh rút gọn từ định nghĩa (khoảng 10 chữ trở xuống). Không ghi (v) ở đầu: app tự gắn. |
+| Ví dụ | 1–2 dòng. Dòng 1: câu của người dùng rút còn 6–15 chữ quanh từ, giữ nguyên chữ, bọc từ (đúng dạng trong câu) bằng `*…*`. Dòng 2: một ví dụ ngắn, dễ hiểu của đúng mục nghĩa đó trong file, cùng sắc thái với câu của người dùng, cũng bọc `*…*`; không có ví dụ cùng sắc thái thì bỏ dòng 2. Khi chép ví dụ, bỏ nhãn hay cụm mẫu dính ở đầu câu (`[ + question word ]`, `establish yourself as something`); chỗ có `/` hay `(…)` thì chọn một cách viết (the facts/truth → the facts). |
 | Từ đồng nghĩa | 2–4 từ hay cụm, cách nhau bằng dấu phẩy, đúng nghĩa đã chọn. Ưu tiên từ thay được vào câu, và từ trong phần "Từ điển từ đồng nghĩa" của file nếu phần đó thuộc đúng mục nghĩa. |
 | Từ trái nghĩa | 0–3 từ, cách nhau bằng dấu phẩy, trái với nghĩa của từ trong câu: thay vào câu thì câu mang nghĩa ngược lại. Không có từ như vậy thì để trống: "establish what caused the outage" (tìm ra) không có, vì disprove chỉ trái với nghĩa "chứng minh". App hiện từ trái nghĩa trên cả hai thẻ, nên đừng ghi cho có. |
 | Từ liên quan | 1–3 từ cùng họ hay gặp, cách nhau bằng dấu phẩy: establishment, established. Không có thì để trống. |
-| Ví dụ | 1–2 dòng. Dòng 1: câu của người dùng rút còn 6–15 chữ quanh từ, giữ nguyên chữ, bọc từ (đúng dạng trong câu) bằng `*…*`. Dòng 2: một ví dụ ngắn, dễ hiểu của đúng mục nghĩa đó trong file, cùng sắc thái với câu của người dùng, cũng bọc `*…*`; không có ví dụ cùng sắc thái thì bỏ dòng 2. Khi chép ví dụ, bỏ nhãn hay cụm mẫu dính ở đầu câu (`[ + question word ]`, `establish yourself as something`); chỗ có `/` hay `(…)` thì chọn một cách viết (the facts/truth → the facts). |
 
 Lưu ý chung:
 - Không ô nào mở đầu bằng `+`, `-` hay `=`: Sheet hiểu là công thức.
@@ -94,6 +94,11 @@ verb
 ```text
 giải quyết, xử lý (vấn đề) — to deal with a problem
 ```
+**Ví dụ**
+```text
+We need to *address* client-side performance issues
+The issue of funding will be *addressed* at the next meeting.
+```
 **Từ đồng nghĩa**
 ```text
 tackle, deal with, handle
@@ -103,10 +108,4 @@ tackle, deal with, handle
 ignore, neglect
 ```
 **Từ liên quan** để trống
-
-**Ví dụ**
-```text
-We need to *address* client-side performance issues
-The issue of funding will be *addressed* at the next meeting.
-```
 ````

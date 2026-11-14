@@ -1,0 +1,161 @@
+/* Cài đặt */
+dialog {
+  width: min(92vw, 420px);
+  padding: 22px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, .6);
+}
+dialog::backdrop { background: rgba(8, 12, 22, .55); }
+dialog h2 { margin: 0 0 4px; font-size: 20px; }
+dialog label, dialog .lbl { display: block; margin: 16px 0 6px; font-size: 14px; color: var(--pencil); }
+dialog input, dialog textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+dialog textarea { display: block; resize: vertical; }
+dialog input:focus-visible, dialog textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; }
+/* Ô Từ: lúc sửa một từ thì ô khoá lại, bên cạnh có nút Đổi chữ và nút × để thôi sửa, gõ từ khác */
+.termrow { display: flex; gap: 8px; }
+.termrow input { flex: 1; min-width: 0; }
+dialog .termrow input[readonly] { border-color: transparent; background: var(--rule); }
+.termrow button {
+  flex: none;
+  min-width: 48px;
+  padding: 0 14px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.termrow button[hidden] { display: none; }
+.termrow .icon { padding: 0; }
+.termrow svg { width: 20px; height: 20px; }
+/* Loại từ: loại đã chọn nằm trong ô, chạm × để bỏ. Gõ vào ô để lọc gợi ý bên dưới, hoặc tạo loại mới */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  cursor: text;
+}
+.tags:focus-within { outline: 2px solid var(--ink); outline-offset: 0; }
+dialog .tags input { flex: 1; width: auto; min-width: 6em; padding: 6px 7px; border: 0; }
+dialog .tags input:focus-visible { outline: none; }
+.tag {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 12px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.tag span { min-width: 0; overflow-wrap: anywhere; }
+.tag button {
+  flex: none;
+  width: 32px;
+  height: 30px;
+  padding: 0 2px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.chips:empty { display: none; }
+.chips button {
+  max-width: 100%;
+  padding: 6px 13px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.chips .new { border-style: dashed; border-color: var(--pencil); }
+/* Nghĩa và ví dụ: mỗi cặp một khối có vạch bên trái, đầu khối là nhãn (v1) và nút × để bỏ cặp. Ô cao vừa đủ chữ */
+.sense { padding-left: 10px; border-left: 3px solid var(--rule); }
+.sense + .sense { margin-top: 12px; }
+.chips + .sense { margin-top: 16px; }
+.shead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  color: var(--pencil);
+  font-size: 15px;
+}
+.shead button {
+  width: 36px;
+  height: 30px;
+  margin-right: -4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+dialog .sense textarea { resize: none; overflow: hidden; }
+dialog .sense textarea + textarea { margin-top: 6px; }
+.info { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--pencil); }
+.info.tip { margin-top: 6px; }
+.info.warn { margin-top: 8px; color: var(--ink); font-weight: 600; }
+.actions { display: flex; gap: 10px; margin-top: 20px; }
+.actions button {
+  flex: 1;
+  height: 46px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: transparent;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.actions .primary { flex: 1.7; border-color: transparent; background: var(--ink); color: var(--paper); }
+.actions .del { color: var(--danger); }
+.actions .primary.danger { background: var(--danger-fill); color: #fff; }
+.actions button:disabled { opacity: .35; cursor: default; }
+/* Nút dạng chữ gạch chân trong bảng cài đặt: Xem thay đổi */
+.lnk {
+  margin: 4px 0 0;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  touch-action: manipulation;
+}

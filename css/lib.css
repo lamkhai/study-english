@@ -1,0 +1,259 @@
+/* Bảng toàn màn hình: Tất cả từ và Thống kê trên giấy; xem một từ thì trên bàn, như lúc học */
+dialog.full {
+  width: 100%;
+  max-width: 540px;
+  height: 100%;
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+dialog.full[open] { display: flex; flex-direction: column; }
+.ptop {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px 12px;
+}
+.seg { flex: 1; display: flex; gap: 2px; padding: 3px; border: 1px solid var(--rule); border-radius: 12px; }
+.seg button {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--pencil);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.seg button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+.x {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.x svg { width: 20px; height: 20px; }
+.lib :focus-visible { outline-color: var(--ink); }
+.pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pane[hidden] { display: none; }
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 18px calc(env(safe-area-inset-bottom, 0px) + 20px);
+}
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pills button {
+  padding: 5px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.pills button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.pills small { margin-left: 5px; font-size: inherit; opacity: .7; }
+
+/* Tất cả từ: ô tìm, cách xếp, lọc, rồi danh sách */
+.find { flex: none; padding: 0 18px 12px; border-bottom: 1px solid var(--rule); }
+.find .line { display: flex; gap: 8px; }
+dialog .find input { flex: 1; width: auto; min-width: 0; padding: 9px 12px; }
+.sort { position: relative; flex: none; display: flex; }
+.sort select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0 30px 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;                       /* nhỏ hơn 16px thì iPhone phóng to trang khi chạm */
+  cursor: pointer;
+}
+.sort::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+  border: solid var(--pencil);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+.words { margin: 0; padding: 0; list-style: none; }
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.row:focus-visible { outline-offset: -2px; }
+.rt, .rm { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt { font-size: 17px; line-height: 1.4; }
+.rt span { font-size: 14px; color: var(--pencil); }
+.rm { font-size: 15px; line-height: 1.4; color: var(--pencil); }
+.rs { grid-column: 2; grid-row: 1 / span 2; font-size: 12.5px; line-height: 1.5; text-align: right; color: var(--pencil); }
+.rs em { font-style: normal; font-weight: 600; color: var(--ink); }
+.none { margin: 40px 0; text-align: center; color: var(--pencil); }
+
+/* Thống kê: mỗi chỉ số một biểu đồ cột; cột đang chọn đậm màu mực, các cột khác màu bút chì */
+.metric { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.metric h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--pencil); }
+.fig { margin: 2px 0 14px; color: var(--pencil); }
+.fig b {
+  margin-right: 4px;
+  padding: 0 3px;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink);
+  background: linear-gradient(transparent var(--mark-from), var(--marker) var(--mark-from));
+}
+.chart { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; }
+.yax, .plot { position: relative; height: 132px; }
+.yax { min-width: 14px; }
+.yax span {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--y) * 100%);
+  transform: translateY(50%);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--pencil);
+  font-variant-numeric: tabular-nums;
+}
+.gl { position: absolute; left: 0; right: 0; bottom: calc(var(--y) * 100%); height: 1px; background: var(--rule); }
+.cols { position: absolute; inset: 0; display: flex; }
+.col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.col i {
+  display: block;
+  width: min(24px, 66%);
+  height: calc(var(--h) * 100%);
+  border-radius: 4px 4px 0 0;
+  background: var(--pencil);
+}
+.col[aria-pressed="true"] i { background: var(--ink); }
+.col:focus-visible { outline-offset: -2px; }
+@media (hover: hover) {
+  .col:hover i { opacity: .75; }
+  .col[aria-pressed="true"]:hover i { opacity: 1; }
+}
+.xax {
+  grid-column: 2;
+  display: flex;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--pencil);
+  font-variant-numeric: tabular-nums;
+}
+.xax span { flex: 1; min-width: 0; text-align: center; white-space: nowrap; }
+.xax .on { color: var(--ink); font-weight: 700; }
+.sum { margin: 12px 0 0; font-size: 13.5px; color: var(--pencil); }
+.tbl { margin-top: 16px; }
+.tbl summary { padding: 4px 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+.tbl table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 6px 4px; border-bottom: 1px solid var(--rule); text-align: right; }
+.tbl th:first-child { text-align: left; font-weight: 400; }
+.tbl thead th { font-weight: 600; color: var(--pencil); }
+.note { margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--pencil); }
+
+/* Xem một từ: thẻ như lúc học, hai nút đi tới từ trước và từ sau */
+dialog.desk {
+  background: var(--desk);
+  color: var(--desk-text);
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+.vtop { flex: none; display: flex; align-items: center; gap: 10px; }
+.pos { flex: 1; margin: 0; text-align: right; font-size: 15px; color: var(--desk-muted); font-variant-numeric: tabular-nums; }
+
+/* Thay đổi chưa đồng bộ: các từ chia theo nhóm, mỗi từ một dòng có nút Bỏ; nút Bỏ tất cả và Đồng bộ ở dưới cùng */
+.ptop h2 { flex: 1; min-width: 0; margin: 0; }
+.chg { padding-bottom: 16px; }
+.chg .note { margin: 0; }
+.chg h3 { margin: 22px 0 0; font-size: 15px; font-weight: 600; color: var(--pencil); }
+.chg h3 small { margin-left: 6px; font-size: inherit; font-weight: 400; }
+.chg ul { margin: 0; padding: 0; list-style: none; }
+.chg li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.cw { flex: 1; min-width: 0; }
+.ct { margin: 0; font-size: 17px; line-height: 1.4; overflow-wrap: anywhere; }
+/* Mỗi ô đã sửa một dòng: Nghĩa: cũ → mới. Ví dụ dài thì cắt ở dòng thứ ba */
+.cd {
+  display: -webkit-box;
+  margin: 2px 0 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--pencil);
+  overflow-wrap: anywhere;
+}
+.cd del { text-decoration-thickness: 1px; }
+.cd ins { text-decoration: none; color: var(--ink); }
+.cx {
+  flex: none;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.cx:disabled { opacity: .35; cursor: default; }
+.pbar {
+  flex: none;
+  margin: 0;
+  padding: 12px 18px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  border-top: 1px solid var(--rule);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .toast { transition: none; }
+  .tool.busy svg { animation: none; }
+  .tool.busy { opacity: .5; }
+}

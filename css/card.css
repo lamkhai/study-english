@@ -1,0 +1,161 @@
+/* Chồng thẻ */
+.deck { position: relative; flex: 1; min-height: 0; display: flex; margin: 16px 0 14px; }
+.deck::before {
+  content: "";
+  position: absolute;
+  inset: 12px 8px -7px;
+  border-radius: 6px;
+  background: var(--paper);
+  opacity: .3;
+  transform: rotate(-1.6deg);
+}
+.card {
+  --line: var(--line-vocab);
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .08), 0 18px 30px -14px rgba(0, 0, 0, .55);
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Thẻ nằm trên một lớp riêng của GPU: lúc kéo, máy chỉ dịch lớp đó chứ không vẽ lại thẻ mỗi khung hình */
+  will-change: transform;
+  transition: transform .2s ease, opacity .2s ease;
+}
+.card.grammar { --line: var(--line-grammar); }
+.head { padding: 22px 22px 12px; border-bottom: 2px solid var(--line); }
+.term {
+  margin: 0;
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, Roboto, sans-serif;
+  font-size: clamp(28px, 8.6vw, 40px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+/* Phiên âm ngay dưới từ, hiện đúng như người dùng gõ */
+.phon { margin: 6px 0 0; font-size: 17px; line-height: 1.35; color: var(--pencil); overflow-wrap: anywhere; }
+/* Dòng kẻ cách nhau 28px, chữ nằm đúng trên dòng */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 22px;
+  line-height: 28px;
+  overflow-wrap: anywhere;      /* link hay chuỗi dài không dấu cách thì xuống dòng, không làm thẻ phình ra ngoài màn hình */
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule) 27px 28px);
+  background-attachment: local;
+}
+/* Các từ liên kết (đồng nghĩa, trái nghĩa, liên quan) rồi tới nghĩa, liền nhau, cách ví dụ một dòng kẻ */
+.gist { margin-bottom: 28px; }
+.meaning { margin: 0; font-size: 19px; font-weight: 500; }
+.meaning i { color: var(--pencil); }
+.link { margin: 0; font-size: 17px; }
+.link i { color: var(--pencil); }
+.ex { margin: 0; font-family: ui-serif, "New York", "Noto Serif", Georgia, serif; font-size: 17.5px; }
+.ex i { color: var(--pencil); }
+/* Từ có từ hai nghĩa: ví dụ nằm ngay dưới nghĩa của nó, thụt vào */
+.ex.sub { padding-left: 1.3em; }
+.card b {
+  font-weight: 700;
+  padding: 0 2px;
+  background: linear-gradient(transparent var(--mark-from), var(--marker) var(--mark-from));
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 22px 14px;
+  font-size: 13px;
+  color: var(--pencil);
+}
+.foot .seen { margin-left: auto; text-align: right; }
+/* Nút ✎ sửa thẻ: lề âm để chân thẻ không cao thêm */
+.foot .edit {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -6px -8px -6px 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pencil);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.foot .edit svg { width: 16px; height: 16px; }
+.empty { margin: auto; padding: 24px; text-align: center; line-height: 1.6; color: var(--pencil); }
+
+.hint { margin: 0 0 12px; text-align: center; font-size: 13px; color: var(--desk-muted); }
+/* Hai nút dưới cùng: Đã nắm rõ và Thẻ tiếp */
+.bar { display: flex; gap: 10px; }
+.bar button {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 54px;
+  padding: 0 8px;
+  border: 1px solid var(--desk-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .08);
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.bar svg { flex: none; width: 20px; height: 20px; }
+.bar button:active:not(:disabled) { background: rgba(255, 255, 255, .16); }
+.bar button:disabled { opacity: .35; cursor: default; }
+/* Thẻ tiếp là nút bấm nhiều nhất nên nổi nhất: nền sáng, chữ màu bàn, ở cả chế độ sáng lẫn tối */
+.bar .next { border-color: transparent; background: var(--desk-text); color: var(--desk); }
+.bar .next:active:not(:disabled) { background: var(--desk-text); opacity: .8; }
+
+/* Thông báo nhỏ phía dưới */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: max-content;
+  max-width: calc(100% - 36px);
+  padding: 9px 16px;
+  border-radius: 10px;
+  background: var(--badge);
+  color: #1d2742;
+  font-size: 15px;
+  line-height: 1.4;
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, .55);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 10px);
+  transition: opacity .2s, transform .2s;
+}
+#toastMsg { min-width: 0; overflow-wrap: anywhere; }
+.toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.toast button {
+  flex: none;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
